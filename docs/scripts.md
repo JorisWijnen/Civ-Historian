@@ -4,45 +4,27 @@ Reference for every script in `scripts/` that makes up the Civ Historian
 pipeline — parsing the mod's log output into an AI-generated newspaper
 recap, posted to Discord.
 
-```
-[Windows gaming PC]                    [Linux box]
-windows_log_watcher.ps1  --scp-->     incoming/
-  (Automation.log)                          |
-                                            v (poll, wait for settle)
-                                      log_watcher.py
-                                            |
-                                            v
-                                     run_pipeline.py
-                                     (parse -> claude x2 -> OpenAI x2)
-                                            |
-                                            v
-                              sessions/<name>/{article.md,headliner.png,
-                                               newspaper.png,...}
-```
-
 The log itself is written by `mod/StatsDumper/StatsDumper.lua` during
 play — an omniscient per-turn snapshot (civs, cities, map, era, victory
 progress, religion, weather/disaster and historic-moment notifications)
-logged via the game's own `Automation.Log()`, no FireTuner connection
-required.
+logged via the game's own `Automation.Log()`.
 
-### `windows_log_watcher.ps1` (runs on the Windows gaming PC)
+### `windows_log_pusher.ps1` (runs on the Windows gaming PC)
 
 Polls the Civ6 Logs folder for `Automation.log`, pushes it to the Linux
-box over `scp` as soon as it appears/grows, then **exits** — run this once
-after finishing a play session, not left running throughout it. Always
-pushes to the **same** remote filename (overwrite, not a timestamped copy)
-since this is a cumulative per-session log, not discrete per-turn
-snapshots — and it pushes without waiting for size to stabilize first,
-since deciding when the log is "settled enough to process" is
-`log_watcher.py`'s job, not this script's.
+box as soon as it appears/grows, then **exits** — run this once after
+finishing a play session, not during the game. Always pushes to the
+**same** remote filename (overwrite, not a timestamped copy) since this is
+a cumulative per-session log, not discrete per-turn snapshots.
 
-`UnitOperations.log` (the native engine log) used to be pushed alongside
-`Automation.log` too, but `StatsDumper.lua` now writes its own richer
-unit-status/combat-target data directly into `Automation.log` itself (see
-`CIV6UNITOPS_V2|...` lines, extracted by `parse_mod_log.py` into
-`AutomationUnitOperations.log` per session), so the native log is no longer
-needed at all.
+Delivery is atomic: each push `scp`'s to a `.partial` name first, then
+renames it into its final name with a single remote `mv` over `ssh`. A
+same-filesystem rename is atomic, so `log_watcher.py` polling the
+destination path can never observe a half-written file — it's either not
+there yet, or it's the complete log. That's what lets `log_watcher.py`
+trigger the pipeline immediately on arrival with no "settle" wait of its
+own. Was named `windows_log_watcher.ps1`; renamed once it stopped
+behaving like a continuous watcher and became a one-shot pusher.
 
 #### Params
 
@@ -57,35 +39,32 @@ needed at all.
 #### Usage
 
 ```powershell
-.\windows_log_watcher.ps1
-.\windows_log_watcher.ps1 -PollSeconds 20
-.\windows_log_watcher.ps1 -Path "D:\Custom\Logs"
-.\windows_log_watcher.ps1 --Path "D:\Custom\Logs"
+.\windows_log_pusher.ps1
+.\windows_log_pusher.ps1 -PollSeconds 20
+.\windows_log_pusher.ps1 -Path "D:\Custom\Logs"
+.\windows_log_pusher.ps1 --Path "D:\Custom\Logs"
 ```
 
 ### `log_watcher.py` (runs on the Linux box)
 
-Polls `incoming/Automation.log`'s size. Once it's stopped growing for
-`--settle-seconds`, runs `run_pipeline.py`. `windows_log_watcher.ps1` only
-pushes the log once a play session is finished, not continuously
-turn-by-turn — so by the time a changed `Automation.log` shows up here at
-all, it's already final. `--settle-seconds` is just a safety margin against
-reading the file mid-`scp`-transfer, not a wait for the player to stop
-playing, so its default is short.
+Polls for `incoming/Automation.log` to exist, then runs `run_pipeline.py`
+the moment it does. No settle/stability check is needed here —
+`windows_log_pusher.ps1`'s atomic rename-on-delivery (see above) already
+guarantees that whenever this file exists, it's the complete, final log,
+never a partial one caught mid-transfer.
 
 #### Params
 
 | Param | Default | Meaning |
 |---|---|---|
-| `--poll-seconds` | `15.0` | How often to check the log's size. |
-| `--settle-seconds` | `10.0` | How long the size must stay unchanged before triggering a run. |
+| `--poll-seconds` | `15.0` | How often to check whether the log has arrived. |
 | `--idle-exit-minutes` | `0` | Exit after this many minutes with nothing new to process. `0` = never exit. |
 
 #### Usage
 
 ```bash
 python3 scripts/log_watcher.py
-python3 scripts/log_watcher.py --poll-seconds 15 --settle-seconds 10
+python3 scripts/log_watcher.py --poll-seconds 15
 python3 scripts/log_watcher.py --idle-exit-minutes 30
 ```
 

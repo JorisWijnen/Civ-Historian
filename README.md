@@ -17,9 +17,9 @@ no manual steps required.
 mod/StatsDumper/StatsDumper.lua                    |
   (writes Automation.log during play)              |
         |                                           |
-windows_log_watcher.ps1  --scp-->             incoming/Automation.log
+windows_log_pusher.ps1  --scp-->              incoming/Automation.log
   (run once after a session, then exits)            |
-                                                      v (poll, wait for settle)
+                                                      v (poll for arrival)
                                               log_watcher.py
                                         (systemd user service, always on)
                                                       |
@@ -40,12 +40,14 @@ windows_log_watcher.ps1  --scp-->             incoming/Automation.log
 1. **`mod/StatsDumper/`** — a read-only Civ6 mod that logs a full per-turn
    snapshot via the game's own `Automation.Log()`, no external tools or
    FireTuner connection required (safe for real multiplayer/anti-cheat).
-2. **`windows_log_watcher.ps1`** — run once after finishing a game session
-   on the machine that was playing. Pushes the accumulated log over `scp`
-   to a Linux box, then exits.
+2. **`windows_log_pusher.ps1`** — run once after finishing a game session
+   on the machine that was playing. Delivers the accumulated log
+   atomically (scp to a temp name, then a remote rename) to a Linux box,
+   then exits.
 3. **`log_watcher.py`** — runs continuously (as a systemd service) on the
-   Linux side, watching for a pushed log to settle, then kicks off the
-   pipeline.
+   Linux side, watching for the log to arrive, then kicks off the
+   pipeline as soon as it does — the atomic handoff above means it never
+   has to guess whether a file it sees is still mid-transfer.
 4. **`run_pipeline.py`** — parses the log into structured JSON, generates
    the article and a front-page image via two headless `claude -p` calls
    and two OpenAI image calls, then posts the result to Discord.
@@ -64,7 +66,7 @@ Full reference for every script (params, flags, behavior notes) lives in
 - `sessions/<name>/` — one directory per processed game session: parsed
   per-turn stats, the generated article, and the generated images.
   Gitignored.
-- `incoming/` — drop zone the Windows-side watcher pushes the log into.
+- `incoming/` — drop zone the Windows-side pusher delivers the log into.
   Gitignored.
 - `logs/` — the log-watcher service's own log output.
 
@@ -96,4 +98,4 @@ systemd user service works well) so it's ready whenever a new log arrives.
   been confirmed to work correctly for anything beyond the local player in
   a real multiplayer session. Era, victory-condition, and religion tracking
   are solid by comparison.
-- `windows_log_watcher.ps1` is meant to be run once after a session has ended, and before the game has rebooted clearing the log files.
+- `windows_log_pusher.ps1` is meant to be run once after a session has ended, and before the game has rebooted clearing the log files.
