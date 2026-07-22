@@ -74,6 +74,7 @@ Full reference for every script (params, flags, behavior notes) lives in
 
 Requires:
 - A Civ VI installation with a subscrition to the [`mod in the workshop`](https://steamcommunity.com/sharedfiles/filedetails/?id=3768059294) and having the mod enabled
+- Claude code running on the pipeline machine
 - An OpenAI API key (image generation)
 - A Discord incoming webhook URL (for posting results)
 
