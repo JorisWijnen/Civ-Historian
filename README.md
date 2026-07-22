@@ -73,7 +73,7 @@ Full reference for every script (params, flags, behavior notes) lives in
 ## Setup
 
 Requires:
-- A Civ VI installation with a subscrition to the [[https://steamcommunity.com/sharedfiles/filedetails/?id=3768059294|mod in the workshop]] and having the mod enabled
+- A Civ VI installation with a subscrition to the [mod in the workshop]('https://steamcommunity.com/sharedfiles/filedetails/?id=3768059294') and having the mod enabled
 - An OpenAI API key (image generation)
 - A Discord incoming webhook URL (for posting results)
 
