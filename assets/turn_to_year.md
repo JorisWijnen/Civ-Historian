@@ -1,6 +1,6 @@
 # Civ6 turn-to-year reference (Standard game speed)
 
-Source: https://i.redd.it/5fdnoa6c4pdc1.jpeg — for converting a `CIV6STATS_V2|TURN|N` turn number into an in-game year when writing summaries/narrative from extracted stats. Standard speed only (Online/Quick/Epic/Marathon use different rates, not covered here).
+Source: https://i.redd.it/5fdnoa6c4pdc1.jpeg — for converting a `CIV6STATS_V3|TURN|N` turn number into an in-game year when writing summaries/narrative from extracted stats. Standard speed only (Online/Quick/Epic/Marathon use different rates, not covered here).
 
 ## Rate table (as given by the source)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parse the StatsDumper mod's Automation.log output into per-turn JSON files.
 
-Reads CIV6STATS_V2|... lines (written by mod/StatsDumper/StatsDumper.lua via
+Reads CIV6STATS_V3|... lines (written by mod/StatsDumper/StatsDumper.lua via
 Automation.Log() on every Events.TurnBegin) and writes JSON files per turn:
 
   turnNNN-civs.json         -- players roster + per-major-civ stats, including
@@ -37,6 +37,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
@@ -49,7 +50,7 @@ from dump_stats import (  # noqa: E402
     parse_map_tiles,
 )
 
-PREFIX = "CIV6STATS_V2|"
+PREFIX = "CIV6STATS_V3|"
 UNITOPS_PREFIX = "CIV6UNITOPS_V2|"
 EVENTS_PREFIX = "CIV6EVENTS_V2|"
 HISTORIC_MOMENTS_CSV = os.path.join(REPO_ROOT, "assets", "historic_moments.csv")
@@ -100,7 +101,7 @@ def split_turn_blocks(path: str, prefix: str = PREFIX) -> dict[int, list[str]]:
     TURN|N...END|N bracket match would miss data logged in a later, separate
     call within the same turn. Keying directly off each line's own turn
     field sidesteps that. `prefix` selects which marker family to bucket
-    (CIV6STATS_V2 or CIV6EVENTS_V2).
+    (CIV6STATS_V3 or CIV6EVENTS_V2).
     """
     blocks: dict[int, list[str]] = {}
     with open(path) as f:
@@ -166,8 +167,16 @@ def parse_turn_block(
     for line in lines:
         tag = line.split("|", 1)[0]
         if tag == "PLAYER":
-            _, _turn, pid, kind, name = line.split("|", 4)
-            players.append({"id": int(pid), "kind": kind, "name": name})
+            _, _turn, pid, kind, rest = line.split("|", 4)
+            rest_parts = rest.split("|")
+            name = rest_parts[0]
+            fields = _kv_fields("|".join(rest_parts[1:]))
+            players.append({
+                "id": int(pid),
+                "kind": kind,
+                "name": name,
+                "city_state_type": fields.get("cstype", ""),
+            })
         elif tag == "CIV":
             _, _turn, pid, name, leader, rest = line.split("|", 5)
             pid = int(pid)
@@ -188,6 +197,8 @@ def parse_turn_block(
                 "civics_completed": _num(fields.get("civics", "0")),
                 "at_war_with": [int(x) for x in fields.get("atwarids", "").split(",") if x],
                 "denounced_by": [int(x) for x in fields.get("denouncedby", "").split(",") if x],
+                "primary_color": fields.get("primary", "#999999"),
+                "secondary_color": fields.get("secondary", "#333333"),
                 "num_cities": 0,
                 "population": 0,
             }
@@ -447,7 +458,7 @@ def main() -> None:
     os.makedirs(args.out, exist_ok=True)
     blocks = split_turn_blocks(args.log)
     if not blocks:
-        print("No CIV6STATS_V2 turn blocks found in log.")
+        print("No CIV6STATS_V3 turn blocks found in log.")
         return
     event_blocks = extract_notable_events(args.log)
 
@@ -543,13 +554,30 @@ def main() -> None:
             if render_map is not None:
                 png_path = os.path.join(args.out, f"turn{turn:03d}.map.png")
                 try:
-                    render_data = {**map_data, "players_roster": civs_data["players_roster"]}
+                    render_data = {
+                        **map_data,
+                        "players_roster": civs_data["players_roster"],
+                        "civs": civs_data["civs"],
+                        "cities": cities,
+                    }
                     render_map(render_data, png_path)
                     print(f"Wrote {png_path}")
                 except Exception as e:
                     print(f"  map render failed for turn {turn}: {e!r}")
         else:
             print(f"  (no map data for turn {turn})")
+
+    if render_map is not None:
+        try:
+            from make_map_video import make_map_video
+            video_path = os.path.join(args.out, "map_timelapse.mp4")
+            frame_count = make_map_video(Path(args.out), Path(video_path))
+            print(f"Wrote {video_path} ({frame_count} frames)")
+        except ImportError:
+            print("  imageio/imageio-ffmpeg not installed -- skipping map_timelapse.mp4 "
+                  "(pip install --break-system-packages imageio imageio-ffmpeg)")
+        except Exception as e:
+            print(f"  map_timelapse.mp4 failed: {e!r}")
 
     unit_op_lines = extract_unit_operations(args.log)
     if unit_op_lines:

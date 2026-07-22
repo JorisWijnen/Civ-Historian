@@ -17,7 +17,7 @@
 -- so downstream tooling gets full data regardless of what any single human
 -- player has explored or met.
 
-local MARKER = "CIV6STATS_V2"
+local MARKER = "CIV6STATS_V3"
 
 -- Terrain/feature/resource name tables never change during a game, but
 -- dump them every turn anyway rather than gating on a "logged once" flag —
@@ -90,6 +90,34 @@ local function CityYieldsStr(c)
 		"|cul="..string.format("%.2f", cul).."|faith="..string.format("%.2f", faith);
 end
 
+-- Packed color -> "#RRGGBB". UI.GetPlayerColors() (confirmed via Firaxis'
+-- own shipped Civ6Common.lua, used there for the colorblind-accessibility
+-- "DifferentiateCivs" feature) returns colors packed as 0xAABBGGRR --
+-- confirmed from that same file's DarkenLightenColor(), which pulls the
+-- blue/green/red bytes out of a hex-formatted dump of the value in that
+-- byte order. Red is therefore the LEAST significant byte here.
+local function PackedColorToHex(c)
+	local r = c % 256;
+	local g = math.floor(c / 256) % 256;
+	local b = math.floor(c / 65536) % 256;
+	return string.format("#%02X%02X%02X", r, g, b);
+end
+
+-- A civ's real in-game primary/secondary colors (the ones its banners,
+-- unit flags, etc. use). Civ6's own lobby already refuses to start a game
+-- with two players assigned conflicting colors, so these are safe to use
+-- directly downstream (render_map_lib.py) without collision-checking
+-- against every other civ in the same game.
+local function PlayerColorHex(i)
+	local primary, secondary = "#999999", "#333333";
+	pcall(function()
+		local p, s = UI.GetPlayerColors(i);
+		if p then primary = PackedColorToHex(p); end
+		if s then secondary = PackedColorToHex(s); end
+	end);
+	return primary, secondary;
+end
+
 -- Majority religion of a single city, "none" if no religion has spread
 -- there yet -- same GetMajorityReligion() call civ6-mcp's religion.py
 -- already uses successfully per-city.
@@ -105,6 +133,37 @@ local function CityReligionName(c)
 	return relName;
 end
 
+-- A city-state's "type" (Culture/Science/Trade/Religious/Militaristic/
+-- Industrial -- the trait that determines its envoy bonus) isn't exposed
+-- as a direct property of the player; the base game itself derives it from
+-- the city-state's LEADER, either directly or via that leader's
+-- GameInfo.Leaders.InheritFrom -- confirmed from Firaxis' own shipped
+-- PartialScreens/CityStates.lua (GetBonusText()), not a guess.
+local MINOR_CIV_TYPE_LEADERS = {
+	LEADER_MINOR_CIV_SCIENTIFIC = "SCIENCE",
+	LEADER_MINOR_CIV_RELIGIOUS = "RELIGIOUS",
+	LEADER_MINOR_CIV_TRADE = "COMMERCIAL",
+	LEADER_MINOR_CIV_CULTURAL = "CULTURE",
+	LEADER_MINOR_CIV_MILITARISTIC = "MILITARY",
+	LEADER_MINOR_CIV_INDUSTRIAL = "INDUSTRIAL",
+};
+
+local function MinorCivType(i)
+	local cstype = "UNKNOWN";
+	pcall(function()
+		local leader = PlayerConfigurations[i]:GetLeaderTypeName();
+		if MINOR_CIV_TYPE_LEADERS[leader] then
+			cstype = MINOR_CIV_TYPE_LEADERS[leader];
+			return;
+		end
+		local info = GameInfo.Leaders[leader];
+		if info and info.InheritFrom and MINOR_CIV_TYPE_LEADERS[info.InheritFrom] then
+			cstype = MINOR_CIV_TYPE_LEADERS[info.InheritFrom];
+		end
+	end);
+	return cstype;
+end
+
 local function DumpTurnStats()
 	local turn = Game.GetCurrentGameTurn();
 	local lines = {};
@@ -118,7 +177,8 @@ local function DumpTurnStats()
 			local name = cfg and Locale.Lookup(cfg:GetCivilizationShortDescription()) or "?";
 			local kind = "MINOR";
 			if p:IsMajor() then kind = "MAJOR"; elseif p:IsBarbarian() then kind = "BARB"; end
-			table.insert(lines, MARKER.."|PLAYER|"..turn.."|"..i.."|"..kind.."|"..name);
+			local cstype = (kind == "MINOR") and MinorCivType(i) or "";
+			table.insert(lines, MARKER.."|PLAYER|"..turn.."|"..i.."|"..kind.."|"..name.."|cstype="..cstype);
 		end
 	end
 
@@ -178,12 +238,15 @@ local function DumpTurnStats()
 				end
 			end);
 
+			local primaryColor, secondaryColor = PlayerColorHex(i);
+
 			table.insert(lines, MARKER.."|CIV|"..turn.."|"..i.."|"..name.."|"..leader..
 				"|human="..tostring(isHuman)..
 				"|score="..score.."|gold="..gold.."|goldpt="..goldYield.."|scipt="..sciYield..
 				"|culpt="..culYield.."|mil="..mil.."|techs="..techs.."|civics="..civics..
 				"|gov="..govName.."|atwarids="..table.concat(warWith, ",")..
-				"|denouncedby="..table.concat(denouncedBy, ","));
+				"|denouncedby="..table.concat(denouncedBy, ",")..
+				"|primary="..primaryColor.."|secondary="..secondaryColor);
 
 			local nCities, totalPop = 0, 0;
 			for _, c in p:GetCities():Members() do

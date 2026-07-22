@@ -5,9 +5,10 @@ pipeline — parsing the mod's log output into an AI-generated newspaper
 recap, posted to Discord.
 
 The log itself is written by `mod/StatsDumper/StatsDumper.lua` during
-play — an omniscient per-turn snapshot (civs, cities, map, era, victory
-progress, religion, weather/disaster and historic-moment notifications)
-logged via the game's own `Automation.Log()`.
+play — an omniscient per-turn snapshot (civs and their real in-game colors,
+cities, map, era, victory progress, religion, weather/disaster and
+historic-moment notifications) logged via the game's own
+`Automation.Log()`.
 
 ### `windows_log_pusher.ps1` (runs on the Windows gaming PC)
 
@@ -87,7 +88,9 @@ The actual worker — steps 3 through 8 of the Civ Historian pipeline, all in
 one script:
 
 1. **Parse**: runs `parse_mod_log.py` against `incoming/Automation.log`
-   into a fresh `sessions/<name>/` directory.
+   into a fresh `sessions/<name>/` directory, including a per-turn map PNG
+   and (once every turn's map is rendered) a `map_timelapse.mp4` assembled
+   from all of them via `make_map_video.py`.
 2. **Template setup**: copies the three prompt templates from `assets/prompts/`
    (`article.prompt.txt`, `prompt_gen.prompt.txt`, `newspaper_image.prompt.txt`)
    into the session directory, substituting the literal string `SESSIONX`
@@ -270,3 +273,51 @@ python3 scripts/render_map_lib.py path/to/dump.json out.png
 
 No other params — takes exactly a JSON path and an output PNG path,
 positionally.
+
+**Territory rendering**: owned tiles get a translucent color wash, with a
+solid border drawn only on the *outer* edge of each territory (an edge is
+bordered only where the neighboring tile belongs to someone else, or is
+off the map) — not on every edge of every owned hex, which is how
+Civ6 itself renders borders in-game.
+
+**Colors**: uses each civ's real in-game primary color (`primary_color` on
+each entry in the JSON's `civs` list, populated from `StatsDumper.lua`'s
+`UI.GetPlayerColors()` dump) directly — Civ6's own lobby already refuses
+to start a game with two players assigned conflicting colors, so no
+collision-checking is needed here. Anyone without a real color at all
+(city-states, barbarians, or an older log predating this field) falls back
+to `assets/colors/jersey-colors.md`, a hand-picked palette chosen for
+maximum distinguishability, picking whichever entry is farthest from every
+color already used. Assignment is order-stable (sorted by player id) so
+the same game's civs keep the same colors turn after turn.
+
+**Cities**: every city gets a marker (pentagon for capitals, circle
+otherwise) filled in the owner's color plus a name label, using a
+Unicode-capable TTF (DejaVu Sans, falling back to Liberation Sans, falling
+back to PIL's plain bitmap font if neither is installed) — PIL's default
+font can't render accented names like "Bogotá" or "Meroë" at all.
+
+### `make_map_video.py`
+
+Not normally run directly — `parse_mod_log.py` calls it automatically
+after rendering every turn's map PNG, assembling `sessions/<name>/turnNNN.map.png`
+into a `map_timelapse.mp4` timelapse in turn order. Requires
+`pip install --break-system-packages imageio imageio-ffmpeg` (the latter
+bundles its own static ffmpeg binary, no system `ffmpeg` install needed);
+if missing, `parse_mod_log.py` logs a warning and skips the video rather
+than failing the whole run. Standalone CLI also available:
+
+#### Params
+
+| Param | Default | Meaning |
+|---|---|---|
+| `session_dir` | required, positional | Directory containing `turnNNN.map.png` files. |
+| `--seconds-per-turn` | `0.5` | Duration each frame is shown for. |
+| `--out` | `<session_dir>/map_timelapse.mp4` | Output MP4 path. |
+
+#### Usage
+
+```bash
+python3 scripts/make_map_video.py sessions/session_X
+python3 scripts/make_map_video.py sessions/session_X --seconds-per-turn 0.25
+```

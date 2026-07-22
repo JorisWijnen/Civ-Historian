@@ -33,12 +33,17 @@ sys.stdout.reconfigure(line_buffering=True)  # real-time ordering when run as
 # a subprocess (see load_save.py's --dump chaining) or backgrounded
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(REPO_ROOT, "civ6-mcp", "src"))
-
-from civ_mcp.connection import GameConnection  # noqa: E402
-from civ_mcp.game_state import GameState  # noqa: E402
 
 DEFAULT_PORTS = (4318, 4319)
+
+# civ_mcp (the FireTuner wire-protocol client) is only imported lazily,
+# inside connect_any_port()/gather() below -- those are the only two
+# functions that actually touch a live connection. Everything else in this
+# module (the _kv_fields/_num/parse_*/compute_map_stats helpers
+# parse_mod_log.py imports) is plain data processing with no such
+# dependency, and importing it unconditionally at module load time meant
+# ANY import of this file broke outright once the civ6-mcp checkout was no
+# longer present -- which is exactly what happened.
 
 # ---------------------------------------------------------------------------
 # Lua queries — all unconditional (no PlayersVisibility/HasMet gating), so
@@ -422,7 +427,17 @@ def overview_to_dict(ov) -> dict:
 # Main
 # ---------------------------------------------------------------------------
 
+def _import_civ_mcp():
+    """Deferred import -- see the note by DEFAULT_PORTS above for why this
+    isn't a plain module-level import."""
+    sys.path.insert(0, os.path.join(REPO_ROOT, "civ6-mcp", "src"))
+    from civ_mcp.connection import GameConnection
+    from civ_mcp.game_state import GameState
+    return GameConnection, GameState
+
+
 async def connect_any_port(ports: tuple[int, ...]) -> GameConnection:
+    GameConnection, _GameState = _import_civ_mcp()
     last_err = None
     for port in ports:
         conn = GameConnection(port=port)
@@ -446,6 +461,7 @@ async def connect_any_port(ports: tuple[int, ...]) -> GameConnection:
 
 
 async def gather(port: int | None) -> dict:
+    _GameConnection, GameState = _import_civ_mcp()
     ports = (port,) if port else DEFAULT_PORTS
     conn = await connect_any_port(ports)
     gs = GameState(conn)

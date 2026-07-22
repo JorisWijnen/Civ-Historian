@@ -4,8 +4,9 @@ Turns a real Civilization VI multiplayer game into an AI-generated
 "newspaper" recap — a written article plus an illustrated front page —
 automatically posted to Discord after each play session.
 
-A custom Lua mod logs an omniscient snapshot of the game every turn (civs,
-cities, map, era, victory progress, religion, weather, historic moments).
+A custom Lua mod logs an omniscient snapshot of the game every turn (civs
+and their real in-game colors, cities, map, era, victory progress,
+religion, weather, historic moments).
 Once a session ends, that log gets parsed, summarized into a news article
 by Claude, illustrated by OpenAI's image model, and posted to Discord —
 no manual steps required.
@@ -31,7 +32,8 @@ windows_log_pusher.ps1  --scp-->              incoming/Automation.log
                                                       |
                                                       v
                               sessions/<name>/{article.md, headliner.png,
-                                               newspaper.png, turnNNN-*.json}
+                                     newspaper.png, turnNNN-*.json/.map.png,
+                                               map_timelapse.mp4}
                                                       |
                                                       v
                                                    Discord
@@ -61,10 +63,12 @@ Full reference for every script (params, flags, behavior notes) lives in
 - `scripts/` — the pipeline described above.
 - `assets/` — leader portrait images (matched by filename against names
   mentioned in image prompts), `claude -p` prompt templates, a historic
-  moments importance-scoring reference, and a turn-number → in-game-year
-  table.
+  moments importance-scoring reference, a turn-number → in-game-year
+  table, and a fallback color palette (`colors/jersey-colors.md`) for any
+  civ with no real in-game color of its own (city-states, barbarians).
 - `sessions/<name>/` — one directory per processed game session: parsed
-  per-turn stats, the generated article, and the generated images.
+  per-turn stats, a rendered map PNG per turn plus a `map_timelapse.mp4`
+  assembled from them, the generated article, and the generated images.
   Gitignored.
 - `incoming/` — drop zone the Windows-side pusher delivers the log into.
   Gitignored.
@@ -90,7 +94,7 @@ systemd user service works well) so it's ready whenever a new log arrives.
 
 ## Known limitations
 
-- **Log format is versioned** (`CIV6STATS_V2`, `CIV6UNITOPS_V2`,
+- **Log format is versioned** (`CIV6STATS_V3`, `CIV6UNITOPS_V2`,
   `CIV6EVENTS_V2` marker tags) so an out-of-date mod produces a loud
   "no turn blocks found" instead of silently parsing into wrong data.
 - **Weather/disaster and historic-moment detection are unverified.** They're
