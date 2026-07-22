@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+sessions/*
+!sessions/.gitkeep
+incoming/*
+logs/*

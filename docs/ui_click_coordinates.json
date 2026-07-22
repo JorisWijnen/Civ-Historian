@@ -1,0 +1,86 @@
+{
+  "_comment": "Screen coordinates for GUI-automating Civ6's menus via xdotool. Captured 2026-07-16 on the civ6 GPU box, real Xorg display :1 (not Xvfb). All coordinates are ABSOLUTE PIXELS at the resolution below, top-left origin, matching the game window at 0,0 fullscreen/borderless. If resolution changes, rescale proportionally (new_x = x * new_width/2560, new_y = y * new_height/1440) and re-verify with a screenshot before trusting.",
+  "resolution": { "width": 2560, "height": 1440 },
+  "click_technique": "xdotool mousemove X Y; sleep 0.15-0.3; xdotool click 1  (window must be focused first: xdotool windowactivate <id>, find id via `xdotool search --name 'Civilization VI'` and match the PID to the running Civ6 process — there are usually 2 window ids, use the one owned by the Civ6 PID, not the mutter-x11-frames wrapper)",
+  "confirmed_working_flow": {
+    "description": "Main menu -> fresh single-player quick-start game. Fully verified end-to-end on 2026-07-16 (reached a playable Turn 1 game).",
+    "steps": [
+      {
+        "step": 1,
+        "action": "click",
+        "target": "Single Player (main menu item)",
+        "x": 1215,
+        "y": 623,
+        "notes": "Opens a flyout submenu to the right with Load Game / Play Now / Scenarios / Create Game"
+      },
+      {
+        "step": 2,
+        "action": "click",
+        "target": "Play Now (submenu item)",
+        "x": 1350,
+        "y": 792,
+        "notes": "Triggers map/leader generation, then a loading screen (~20-25s), then a leader-intro screen"
+      },
+      {
+        "step": 3,
+        "action": "click",
+        "target": "Begin Game (globe icon on leader-intro screen)",
+        "x": 990,
+        "y": 1152,
+        "notes": "IMPORTANT: click the globe icon itself, NOT the 'Begin Game' text ribbon below it (tried (975,1215) on the ribbon text first — did not register, had to retry on the globe). Re-measured 2026-07-17 by locating the globe's actual pixel centroid in a screenshot: (990, 1152), confirmed working. The (975,1110) value recorded here previously (and the (988,1085) hardcoded in load_save.py's GLOBE_ICON_Y) were both off enough to miss the button — caused load_save.py's throwaway-bootstrap step to silently fail/retry against a real multiplayer save load (turn 51 of an actual game), burning two full click-sequence attempts before timing out. If this ever stops working again, don't eyeball it — screenshot, then find the exact button centroid pixel-by-pixel (e.g. threshold on the globe's blue color) rather than guessing from the image preview, since off-by-50-100px errors here are easy to make and hard to notice from a scaled-down screenshot. Leader/civ shown is randomized each time — text position should be consistent since it's a fixed-layout screen, but re-verify with a screenshot if this stops working."
+      }
+    ]
+  },
+  "create_game_custom_difficulty_flow": {
+    "description": "Main menu -> Single Player -> Create Game -> pick a specific difficulty (e.g. Deity) -> Start Game -> Begin Game. Use this instead of Play Now whenever a non-default difficulty/map is needed — Play Now always uses Prince and quick-start defaults, with no way to change that via clicks. Fully verified end-to-end 2026-07-16 (reached a playable Turn 1 Deity game).",
+    "steps": [
+      {"step": 1, "action": "click", "target": "Single Player (main menu item)", "x": 1215, "y": 623},
+      {"step": 2, "action": "click", "target": "Create Game (flyout submenu item)", "x": 1372, "y": 919,
+       "notes": "Flyout item order shifts if a 'Resume Game' entry is present (see resume_game_shifts_flyout_positions) — screenshot and confirm 'Create Game' position before clicking blind."},
+      {"step": 3, "action": "click", "target": "Choose Game Difficulty dropdown", "x": 1279, "y": 499,
+       "notes": "Opens a dropdown list: Settler/Chieftain/Warlord/Prince/King/Emperor/Immortal/Deity, top to bottom starting ~displayed y=419 with ~24-25px row spacing at DISPLAYED resolution (remember to scale by 1.28 to get actual pixels — got this wrong once and selected Warlord instead of Deity by using the displayed-image y value directly as the actual coordinate)."},
+      {"step": 4, "action": "click", "target": "Deity (bottom of dropdown list)", "x": 1279, "y": 759},
+      {"step": 5, "action": "click", "target": "Start Game button", "x": 1279, "y": 1409,
+       "notes": "Leads to the same leader-intro 'Begin Game' screen as the Play Now flow — click the globe icon per confirmed_working_flow step 3 to proceed."}
+    ]
+  },
+  "exit_to_main_menu_flow": {
+    "description": "In-game -> main menu via the pause menu, WITHOUT killing/relaunching Civ6. Much faster than a full kill+relaunch cycle (no ~40s fresh_launch_menu_render_delay, no port-hunting, no losing the FireTuner connection's process). Confirmed working 2026-07-16 (user pointed out this should be possible instead of always relaunching). Use this whenever you need 'any InGame state to bootstrap from' or 'back to main menu' and Civ6 is already running with a game loaded — only kill+relaunch when Civ6 isn't running at all.",
+    "steps": [
+      {
+        "step": 1,
+        "action": "keypress",
+        "target": "Escape",
+        "notes": "Opens the in-game pause menu ('MENU' panel: Return To Game / Quick Save / Save Game / Load Game / New Features / Options / Retire / Restart / Exit To Main Menu / Exit To Desktop). xdotool key Escape (window must be focused first, same as click_technique)."
+      },
+      {
+        "step": 2,
+        "action": "click",
+        "target": "Exit To Main Menu",
+        "x": 1276,
+        "y": 743,
+        "notes": "CORRECTED 2026-07-17: the previous (1276,851) value was measured wrong and actually landed past the 'Exit To Desktop' row below it, fully quitting Civ6 to the desktop instead of returning to the main menu. Re-measured directly from a fresh screenshot of the 5-item MENU panel (Return To Game/Options/Restart/Exit To Main Menu/Exit To Desktop): rows are evenly spaced ~47px apart (displayed, ~60px actual) starting around y=572 actual for 'Return To Game'. Triggers an 'Are you sure you wish to quit your game?' confirmation dialog (same phrasing Civ6 uses for both Exit To Main Menu AND Exit To Desktop, so the text alone doesn't distinguish them — verify the row you clicked before trusting the dialog appeared for the right reason)."
+      },
+      {
+        "step": 3,
+        "action": "click",
+        "target": "YES (confirm dialog)",
+        "x": 1128,
+        "y": 772,
+        "notes": "NO button is at roughly (1432,772), to the right of YES — don't mix them up. After confirming, there's a brief transition (~1-2s) before the main menu is actually showing; a screenshot taken too early will still show the old pause-menu panel and look like the click failed when it actually worked, just not yet rendered. Wait ~2s before verifying. IMPORTANT: always screenshot right after the step-2 click and BEFORE clicking YES, to confirm this dialog actually appeared because of the intended row (Exit To Main Menu) and not a mis-click landing on Exit To Desktop instead — confirmed 2026-07-17 that a bad step-2 coordinate silently quit the whole game with no distinguishing dialog text."
+      }
+    ]
+  },
+  "unconfirmed_not_attempted_via_clicks": {
+    "description": "The actual production save-loading path (multiplayer autosaves) was done manually by the user through the real UI, not scripted by the agent — these coordinates are NOT captured. Needed: Multiplayer -> Internet -> Load Game -> pick save -> Launch. Whoever picks this up next should screenshot each step and derive coordinates the same way as the confirmed_working_flow above, following the same crop-and-measure technique documented in project_civ6_spike2_automation_cli_attempts.md."
+  },
+  "technique_notes": {
+    "coordinate_measurement": "Take a full-resolution xwd screenshot (NOT a downscaled thumbnail — using thumbnail coordinates directly against the real display caused multiple missed clicks this session), crop tightly around the target button in Python/PIL, read the pixel offset of the button center within the crop, then add the crop's top-left offset back to get real screen coordinates.",
+    "window_focus_gotcha": "Clicks silently no-op (no error, nothing happens) if the window isn't focused/active, or if using thumbnail-derived coordinates. Always take a fresh screenshot after each click to confirm the expected screen transition happened before proceeding to the next click blind.",
+    "xwd_to_png_conversion": "No imagemagick/ffmpeg available in this environment as of 2026-07-16 — screenshots were taken with `xwd -root -out file.xwd` then manually parsed with a small Python/struct script (XWD header is 25 big-endian uint32 fields, pixel data follows after header + ncolors*12 bytes of colormap, format is BGRA raw for this system's 32bpp depth-24 visual). See conversation history or reimplement rather than assuming imagemagick is installed. PIL IS available inside civ6-mcp's uv venv (Pillow is a transitive dep) — `Image.frombuffer('RGBA', (w,h), pixel_bytes, 'raw', 'BGRA', 0, 1).convert('RGB')` reproduces this correctly; prefer that over re-deriving XWD field offsets by trial and error (pixmap_width/height are header fields 4 and 5 zero-indexed, NOT 6 and 7 — easy off-by-two mistake).",
+    "window_id_gotcha": "`xdotool search --name 'Civilization VI'` can return MULTIPLE window ids, and they are not both the real game. One observed id (2026-07-16) belonged to PID owned by `/usr/lib/mutter-x11-frames` — a decoration/frame wrapper, NOT the game — and had stale/wrong geometry (windowed, not fullscreen). Clicking/activating that id silently no-ops on the actual game (focus stayed on whatever else had it, e.g. the Steam client) even though `windowactivate`/`windowfocus` returned no fatal error (just a benign `XGetWindowProperty[_NET_WM_DESKTOP] failed` warning, which does NOT mean activation failed). ALWAYS cross-check with `xdotool getwindowpid <id>` against `pgrep -af Civ6` to confirm the id belongs to the actual `.../Civ6` binary process before clicking, and verify with `xwininfo -id <id>` that geometry is fullscreen (2560x1440 at absolute 0,0) before trusting stored coordinates. After finding the correct id, `xdotool windowactivate --sync <id> && xdotool windowfocus --sync <id> && xdotool windowraise <id>` reliably works; then confirm via `xdotool getwindowfocus` before clicking blind.",
+    "display_is_the_real_desktop": "DISPLAY=:1 on this box is the user's actual live logged-in GNOME session on the physical monitor (Xorg vt2), not an isolated/headless display. Mouse clicks sent here affect the user's real desktop — if focus/window-id targeting is wrong (see window_id_gotcha above), clicks can land on Steam, Files, or whatever else is on screen instead of Civ6. Always verify focus before clicking, not just after.",
+    "resume_game_shifts_flyout_positions": "If a game is resumable (e.g. after 'Exit To Main Menu' rather than a full kill), the Single Player flyout gains a 'Resume Game' entry ABOVE 'Load Game'/'Play Now'/etc, shifting all of them down one row (~33px). The confirmed_working_flow's Play Now coordinate (1350,817) was calibrated for the 4-item flyout (no Resume Game) and will land on the wrong item (observed: landed on Load Game, which then loaded the most recent autosave) when a 5th 'Resume Game' entry is present. Always screenshot the flyout after the Single Player click to check which items are present before clicking blind, rather than assuming the 4-item layout.",
+    "fresh_launch_menu_render_delay": "On a COLD launch (Civ6 process wasn't already running), the FireTuner TCP port opens and the game window appears within seconds, but the main menu is NOT actually rendered/interactive for roughly 40s after that. Clicking before then silently misses (no submenu opens, no error) — confirmed by scripts/load_save.py's --launch flag failing its first attempt this way. If Civ6 was already running (even just sitting at the main menu from a prior session), it's already settled and no extra wait is needed — this delay is specifically about the immediate post-launch window. scripts/load_save.py handles this (40s wait on fresh launch only) plus a one-shot retry of the whole click sequence as a safety net."
+  }
+}

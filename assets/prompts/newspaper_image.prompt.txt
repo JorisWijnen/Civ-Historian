@@ -1,0 +1,1 @@
+Generate an image of a newspaper's front page based on the article text below and the attached image, which is the headliner's illustration. Make the headliner have a big title in the middle and add the image. Make sure the text is clear. The newspaper is called Civ Historian.

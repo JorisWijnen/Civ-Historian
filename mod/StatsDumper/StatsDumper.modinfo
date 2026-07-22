@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mod id="5da5a64c-ed89-4c12-90ee-7614deb957bc" version="1">
+  <Properties>
+    <Name>LOC_STATS_DUMPER_NAME</Name>
+    <Teaser>LOC_STATS_DUMPER_TEASER</Teaser>
+    <Description>LOC_STATS_DUMPER_DESCRIPTION</Description>
+    <Authors>joris</Authors>
+    <AffectsSavedGames>0</AffectsSavedGames>
+    <CompatibleVersions>1.2,2.0</CompatibleVersions>
+  </Properties>
+
+  <LocalizedText>
+    <Text id="LOC_STATS_DUMPER_NAME">
+      <en_US>Stats Dumper</en_US>
+    </Text>
+    <Text id="LOC_STATS_DUMPER_TEASER">
+      <en_US>Writes a per-turn stats snapshot to a local log file for external tooling. No gameplay effect.</en_US>
+    </Text>
+    <Text id="LOC_STATS_DUMPER_DESCRIPTION">
+      <en_US>Every turn, writes each civilization's score, cities, tech/civic count, gold, government and diplomatic state to Logs/Automation.log. Purely a reporting mod -- it never reads or writes anything a player couldn't already see on the in-game Demographics/Victory screens, and it never modifies game state. Intended for personal use with an external turn-by-turn stats/summary tool.</en_US>
+    </Text>
+  </LocalizedText>
+
+  <InGameActions>
+    <AddUserInterfaces id="StatsDumper_AddScript">
+      <Properties>
+        <Context>InGame</Context>
+      </Properties>
+      <File>StatsDumper.xml</File>
+    </AddUserInterfaces>
+    <ImportFiles id="StatsDumper_Import">
+      <File>StatsDumper.lua</File>
+    </ImportFiles>
+  </InGameActions>
+
+  <Files>
+    <File>StatsDumper.xml</File>
+    <File>StatsDumper.lua</File>
+  </Files>
+</Mod>
