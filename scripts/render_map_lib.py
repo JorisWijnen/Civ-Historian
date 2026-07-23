@@ -89,10 +89,13 @@ def _resolve_player_styles(
 ) -> dict[int, dict]:
     """Returns {pid: {"border": rgb, "fill": rgb, "striped": bool}}.
 
-    Majors: border = real primary color, fill = real secondary color (from
-    StatsDumper.lua's UI.GetPlayerColors() dump) -- Civ6's own lobby already
-    refuses to start a game with two players sharing a color, so no
-    collision-avoidance is needed for these.
+    Majors: border = real SECONDARY color, fill = real PRIMARY color (from
+    StatsDumper.lua's UI.GetPlayerColors() dump) -- swapped from what the
+    names suggest because that's how Civ6 itself actually uses them: the
+    territory hue in-game is the primary color, and the border/outline is
+    the secondary color. Civ6's own lobby already refuses to start a game
+    with two players sharing a color, so no collision-avoidance is needed
+    for these.
 
     City-states: both border and fill come from their city-state type (see
     CITY_STATE_TYPE_COLORS), with the border striped black/type-color
@@ -125,7 +128,8 @@ def _resolve_player_styles(
             used.append(accent)
             continue
         if pid in real_by_id:
-            border, fill = real_by_id[pid]
+            primary, secondary = real_by_id[pid]
+            border, fill = secondary, primary
             styles[pid] = {"border": border, "fill": fill, "striped": False}
             used.append(border)
             continue

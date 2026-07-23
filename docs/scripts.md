@@ -280,16 +280,26 @@ bordered only where the neighboring tile belongs to someone else, or is
 off the map) — not on every edge of every owned hex, which is how
 Civ6 itself renders borders in-game.
 
-**Colors**: uses each civ's real in-game primary color (`primary_color` on
-each entry in the JSON's `civs` list, populated from `StatsDumper.lua`'s
-`UI.GetPlayerColors()` dump) directly — Civ6's own lobby already refuses
-to start a game with two players assigned conflicting colors, so no
-collision-checking is needed here. Anyone without a real color at all
-(city-states, barbarians, or an older log predating this field) falls back
-to `assets/colors/jersey-colors.md`, a hand-picked palette chosen for
-maximum distinguishability, picking whichever entry is farthest from every
-color already used. Assignment is order-stable (sorted by player id) so
-the same game's civs keep the same colors turn after turn.
+**Colors**: majors use their real in-game colors (`primary_color`/
+`secondary_color` on each entry in the JSON's `civs` list, populated from
+`StatsDumper.lua`'s `UI.GetPlayerColors()` dump) — border = secondary,
+fill/hue = primary, matching how Civ6 itself actually uses the two (not
+the other way around, despite what the names suggest). Civ6's own lobby
+already refuses to start a game with two players assigned conflicting
+colors, so no collision-checking is needed here.
+
+City-states get both their border and fill from their city-state type
+(`CITY_STATE_TYPE_COLORS`: Culture/Science/Commercial/Religious/
+Industrial/Military each map to a fixed accent color) instead of a
+civ-style color pair, with the border **striped** black/accent rather than
+solid, so they read as a different kind of territory at a glance.
+
+Anyone left with no real color or type at all (barbarians, or an older log
+predating these fields) falls back to `assets/colors/jersey-colors.md`, a
+hand-picked palette chosen for maximum distinguishability, picking
+whichever entry is farthest from every color already used. Assignment is
+order-stable (sorted by player id) so the same game's civs/city-states
+keep the same colors turn after turn.
 
 **Cities**: every city gets a marker (pentagon for capitals, circle
 otherwise) filled in the owner's color plus a name label, using a
