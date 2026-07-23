@@ -2,8 +2,10 @@
 """Civ Historian pipeline, steps 3-8: given the pushed Automation.log
 sitting in incoming/, parse it into a fresh sessions/<name>/ folder,
 generate the article + image prompt via two headless `claude -p` calls,
-render headliner.png / newspaper.png via OpenAI (gpt-image-1, see
-openai_image.py), and post newspaper.png + article.md to Discord.
+renders headliner.png via Gemini (nano_banana.py) and newspaper.png via
+OpenAI (gpt-image-2, see openai_image.py) -- mixed backend on purpose, each
+picked for whichever image it was judged better at -- and posts
+newspaper.png + article.md to Discord.
 
 Posting to Discord requires an incoming webhook URL:
     export DISCORD_WEBHOOK_URL=...  (Server Settings -> Integrations ->
@@ -118,33 +120,17 @@ def match_leader_images(prompt_text: str) -> list[Path]:
     return matches
 
 
-NEWSPAPER_EXCERPT_CHARS = 600
-
-
-def _article_excerpt(article_text: str, limit: int = NEWSPAPER_EXCERPT_CHARS) -> str:
-    """First few hundred characters of the article -- the masthead plus the
-    headline and opening line -- rather than the full body. Whichever image
-    model is behind openai_image.py has to typeset whatever text it's given
-    legibly onto one image; passing the full multi-paragraph article (~7KB
-    in one real session) consistently triggered a refusal under the
-    previous Gemini backend rather than an occasional fluke, and asking any
-    image model to typeset that much body text is a bad idea regardless of
-    vendor. The full text still reaches readers via post_to_discord()'s
-    separate plain-text messages, so the image only needs enough to look
-    right."""
-    excerpt = article_text[:limit]
-    if len(article_text) > limit:
-        excerpt = excerpt.rsplit(" ", 1)[0] + "…"
-    return excerpt
-
-
 def generate_images(session_dir: Path) -> None:
-    """Steps 6/7: image generation calls (openai_image.py, OpenAI
-    gpt-image-1 under the hood). Raises RuntimeError (caller decides what
-    to do) if OPENAI_API_KEY isn't set yet -- that failure happens on the
-    very first call below, before there's anything to fall back to."""
+    """Steps 6/7: image generation calls -- mixed backend on purpose.
+    headliner.png uses Gemini (nano_banana.py) since its output won out for
+    a single character-focused scene; newspaper.png uses OpenAI
+    (openai_image.py) since its text/layout handling won out for the dense
+    front-page composite. Raises RuntimeError (caller decides what to do)
+    if GEMINI_API_KEY isn't set yet -- that failure happens on the very
+    first call below, before there's anything to fall back to."""
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
-    from openai_image import generate_image  # noqa: E402
+    from nano_banana import generate_image as generate_image_gemini  # noqa: E402
+    from openai_image import generate_image as generate_image_openai  # noqa: E402
 
     image_prompt_path = session_dir / IMAGE_PROMPT_NAME
     if not image_prompt_path.exists():
@@ -155,23 +141,29 @@ def generate_images(session_dir: Path) -> None:
     print(f"  leader portraits matched: {[p.name for p in ref_images]}")
 
     headliner_path = session_dir / "headliner.png"
-    print("  generating headliner.png ...")
-    generate_image(prompt_text, ref_images, headliner_path)
+    print("  generating headliner.png (Gemini) ...")
+    generate_image_gemini(prompt_text, ref_images, headliner_path)
 
     newspaper_prompt_path = session_dir / "newspaper_image.prompt.txt"
     newspaper_text = newspaper_prompt_path.read_text()
     article_text = (session_dir / "article.md").read_text()
+    # Full article wrapped in explicit BEGIN/END markers, with the actual
+    # instruction *after* the content (not before) -- matches a manually
+    # tested prompt structure that produced a genuinely good full front
+    # page with gpt-image-2, vs. the truncated/garbled results earlier
+    # attempts (instructions-first, excerpt-only) gave with gpt-image-1.
     full_prompt = (
-        newspaper_text
-        + "\n\n---\nHeadline/opening excerpt to typeset (this is not the full article):\n\n"
-        + _article_excerpt(article_text)
+        "----- START ARTICLE.MD -----\n"
+        + article_text
+        + "\n----- END ARTICLE.MD -----\n"
+        + newspaper_text
     )
 
-    print("  generating newspaper.png ...")
+    print("  generating newspaper.png (OpenAI) ...")
     newspaper_path = session_dir / "newspaper.png"
     discord_image_path = headliner_path
     try:
-        generate_image(full_prompt, [headliner_path], newspaper_path)
+        generate_image_openai(full_prompt, [headliner_path], newspaper_path)
         discord_image_path = newspaper_path
     except Exception as e:
         # headliner.png already exists at this point -- post that instead
@@ -237,8 +229,8 @@ def main() -> None:
         print(f"Image generation skipped: {e}", file=sys.stderr)
         print(
             f"article.md and {IMAGE_PROMPT_NAME} are ready in {session_dir}. "
-            f"Re-run with --session-name {session_dir.name} once OPENAI_API_KEY "
-            f"is set to pick up from here.",
+            f"Re-run with --session-name {session_dir.name} once GEMINI_API_KEY/"
+            f"OPENAI_API_KEY are set to pick up from here.",
             file=sys.stderr,
         )
         return

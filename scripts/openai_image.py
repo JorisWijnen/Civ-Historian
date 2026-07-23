@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Calls OpenAI's image-generation model (gpt-image-1) to turn a text
+"""Calls OpenAI's image-generation model (gpt-image-2) to turn a text
 prompt plus reference images into a generated PNG. Used to call Gemini
 instead (nicknamed "Nano Banana") -- switched to OpenAI because its output
 was noticeably better for this newspaper/illustration use case.
+
+Model/param defaults below (gpt-image-2, size/quality/background/moderation
+all "auto") match a manually-tested `client.images.edits()` call that
+produced a genuinely good full front page, not a guess.
 
 Requires:
     export OPENAI_API_KEY=...   (https://platform.openai.com/api-keys)
@@ -23,8 +27,11 @@ from pathlib import Path
 
 import requests
 
-DEFAULT_MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
-DEFAULT_SIZE = os.environ.get("OPENAI_IMAGE_SIZE", "1024x1024")
+DEFAULT_MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-2")
+DEFAULT_SIZE = os.environ.get("OPENAI_IMAGE_SIZE", "auto")
+DEFAULT_QUALITY = os.environ.get("OPENAI_IMAGE_QUALITY", "auto")
+DEFAULT_BACKGROUND = os.environ.get("OPENAI_IMAGE_BACKGROUND", "auto")
+DEFAULT_MODERATION = os.environ.get("OPENAI_IMAGE_MODERATION", "auto")
 GENERATIONS_URL = "https://api.openai.com/v1/images/generations"
 EDITS_URL = "https://api.openai.com/v1/images/edits"
 
@@ -51,11 +58,19 @@ def generate_image(
         existing_refs.append(img_path)
 
     # With reference images (leader portraits, or headliner.png when
-    # composing the newspaper front page): /images/edits, which gpt-image-1
-    # treats as guidance images -- it supports several input images per
-    # call, sent as repeated "image[]" multipart fields. With none at all
-    # (e.g. no leader portrait matched a headliner prompt): plain
-    # /images/generations, which is text-only and has no "image" field.
+    # composing the newspaper front page): /images/edits, which treats them
+    # as guidance images -- it supports several input images per call, sent
+    # as repeated "image[]" multipart fields. With none at all (e.g. no
+    # leader portrait matched a headliner prompt): plain /images/generations,
+    # which is text-only and has no "image" field.
+    common = {
+        "model": model,
+        "prompt": prompt_text,
+        "size": DEFAULT_SIZE,
+        "quality": DEFAULT_QUALITY,
+        "background": DEFAULT_BACKGROUND,
+        "moderation": DEFAULT_MODERATION,
+    }
     if existing_refs:
         opened = [open(p, "rb") for p in existing_refs]
         try:
@@ -63,8 +78,7 @@ def generate_image(
                 ("image[]", (p.name, f, mimetypes.guess_type(p.name)[0] or "application/octet-stream"))
                 for p, f in zip(existing_refs, opened)
             ]
-            data = {"model": model, "prompt": prompt_text, "size": DEFAULT_SIZE}
-            resp = requests.post(EDITS_URL, headers=headers, data=data, files=files, timeout=180)
+            resp = requests.post(EDITS_URL, headers=headers, data=common, files=files, timeout=180)
         finally:
             for f in opened:
                 f.close()
@@ -72,8 +86,7 @@ def generate_image(
         # Unlike /edits (which needs multipart for the file upload),
         # /generations only accepts a JSON body -- a form-encoded POST here
         # gets rejected outright with "unsupported_content_type".
-        data = {"model": model, "prompt": prompt_text, "size": DEFAULT_SIZE}
-        resp = requests.post(GENERATIONS_URL, headers=headers, json=data, timeout=180)
+        resp = requests.post(GENERATIONS_URL, headers=headers, json=common, timeout=180)
 
     if resp.status_code != 200:
         raise RuntimeError(
@@ -89,7 +102,7 @@ def generate_image(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Generate an image via OpenAI (gpt-image-1)")
+    ap = argparse.ArgumentParser(description="Generate an image via OpenAI (gpt-image-2)")
     ap.add_argument("--prompt-file", required=True, type=Path)
     ap.add_argument("--ref-image", action="append", default=[], type=Path, dest="ref_images")
     ap.add_argument("--out", required=True, type=Path)

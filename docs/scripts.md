@@ -112,15 +112,21 @@ one script:
    `openai_image_prompt.txt` against filenames in `assets/leaders/` (all-words
    whole-word match, e.g. `frederick-barbarossa.webp` needs both "frederick"
    and "barbarossa" present), attaches the matched portraits as reference
-   images, and calls OpenAI (`gpt-image-1`, via `openai_image.py`) to produce
-   `headliner.png`.
-7. **Newspaper composite**: calls OpenAI again with
-   `newspaper_image.prompt.txt` plus a short excerpt of `article.md` (just
-   the masthead/headline/opening line — asking the model to typeset the
-   *entire* article onto one image reliably failed) and `headliner.png`
-   attached as a reference image, producing the final `newspaper.png`. If
-   this step fails for any reason, `headliner.png` is posted to Discord
-   instead rather than skipping the post entirely.
+   images, and calls **Gemini** (`gemini-2.5-flash-image`, via
+   `nano_banana.py`) to produce `headliner.png` — judged better than OpenAI
+   for this single character-focused illustration.
+7. **Newspaper composite**: calls **OpenAI** (`gpt-image-2`, via
+   `openai_image.py`) with the *full* `article.md` text wrapped in explicit
+   `----- START ARTICLE.MD -----`/`----- END ARTICLE.MD -----` markers, followed
+   by `newspaper_image.prompt.txt`'s instructions (content before
+   instructions, not after), and `headliner.png` attached as a reference
+   image — this ordering plus `gpt-image-2` matches a manually-tested call
+   that produced a genuinely complete, legible front page, unlike earlier
+   attempts (instructions-first, excerpt-only, `gpt-image-1`) which
+   truncated or garbled the body text. If this step fails for any reason,
+   `headliner.png` is posted to Discord instead rather than skipping the
+   post entirely. The two image steps deliberately use different backends,
+   not a leftover from the OpenAI migration.
 8. **Discord**: posts the image (`newspaper.png`, or the `headliner.png`
    fallback) via `post_discord.py`, followed by `article.md`'s full text as
    one or more follow-up messages — unless `DISCORD_POST_ARTICLE_TEXT=0`
@@ -131,7 +137,7 @@ one script:
 | Param | Default | Meaning |
 |---|---|---|
 | `--session-name` | new `session_<start timestamp>` | Target session directory under `sessions/`. If it already exists, **resumes** it instead of re-parsing: skips step 4 if `article.md` already exists, skips step 5 if `openai_image_prompt.txt` already exists, and always (re-)runs steps 6/7 unless `--skip-images` is given. |
-| `--skip-images` | off | Stop after steps 3-5 (article + image prompt only) — no OpenAI calls. |
+| `--skip-images` | off | Stop after steps 3-5 (article + image prompt only) — no Gemini/OpenAI calls. |
 
 #### Usage
 
@@ -150,26 +156,26 @@ python3 scripts/run_pipeline.py --session-name session_20260718_222916   # resum
   there's no human available to approve tool calls in an unattended
   pipeline — acceptable here because the only inputs are our own generated
   stats/prompt files, not untrusted external data.
-- If `OPENAI_API_KEY` isn't set, step 6 (the first image call) raises a
+- If `GEMINI_API_KEY` isn't set, step 6 (the first image call) raises a
   `RuntimeError` that's caught and reported clearly rather than crashing:
   `article.md`/`openai_image_prompt.txt` are left in place, and the message
-  tells you to re-run with `--session-name <name>` once the key is set,
+  tells you to re-run with `--session-name <name>` once both keys are set,
   which picks up exactly where it left off (steps 3-5 are skipped as
   already done).
-- Only needs the `requests` package for steps 6/7 (not needed for
-  `--skip-images` runs) — no image SDK/`pip install` required.
+- Needs `pip install --break-system-packages google-genai Pillow` for step
+  6 and the `requests` package for step 7 (neither needed for
+  `--skip-images` runs).
 - `DISCORD_POST_ARTICLE_TEXT` (default on; `0`/`false`/`no` disables) —
   whether step 8 also posts `article.md`'s full text after the image.
   Defaults to on, but since OpenAI's `newspaper.png` renders the article
   legibly on its own, the text follow-up is often redundant now.
 
-### `openai_image.py`
+### `nano_banana.py`
 
-Not normally run directly — the OpenAI (`gpt-image-1`) image-generation
-call `run_pipeline.py` uses internally for steps 6/7. Used to be called
-`nano_banana.py` back when this called Gemini instead (nicknamed "Nano
-Banana"); renamed once the backend switched to OpenAI. Standalone CLI also
-available for one-off testing:
+Not normally run directly — the Gemini (`gemini-2.5-flash-image`)
+image-generation call `run_pipeline.py` uses internally for step 6
+(`headliner.png`). Named after Gemini's own "Nano Banana" nickname for its
+image model. Standalone CLI also available for one-off testing:
 
 #### Params
 
@@ -178,7 +184,46 @@ available for one-off testing:
 | `--prompt-file` | required | Path to a text file with the image prompt. |
 | `--ref-image` | none (repeatable) | Path to a reference image to attach; pass multiple times for multiple images. |
 | `--out` | required | Output PNG path. |
-| `--model` | `gpt-image-1` (or `$OPENAI_IMAGE_MODEL`) | OpenAI model ID to call. |
+| `--model` | `gemini-2.5-flash-image` (or `$GEMINI_IMAGE_MODEL`) | Gemini model ID to call. |
+
+#### Usage
+
+```bash
+python3 scripts/nano_banana.py --prompt-file sessions/X/openai_image_prompt.txt \
+    --ref-image assets/leaders/dido.webp --ref-image assets/leaders/wilhelmina.webp \
+    --out sessions/X/headliner.png
+```
+
+Requires `pip install --break-system-packages google-genai Pillow` and
+`GEMINI_API_KEY` in the environment (get one at
+https://aistudio.google.com/apikey) — note that Gemini's image-output
+models generally need billing enabled on the underlying Google Cloud
+project; a plain free-tier key returns a `429 RESOURCE_EXHAUSTED` with
+`limit: 0` rather than actually generating anything.
+
+### `openai_image.py`
+
+Not normally run directly — the OpenAI (`gpt-image-2`) image-generation
+call `run_pipeline.py` uses internally for step 7 (`newspaper.png`).
+Standalone CLI also available for one-off testing:
+
+#### Params
+
+| Param | Default | Meaning |
+|---|---|---|
+| `--prompt-file` | required | Path to a text file with the image prompt. |
+| `--ref-image` | none (repeatable) | Path to a reference image to attach; pass multiple times for multiple images. |
+| `--out` | required | Output PNG path. |
+| `--model` | `gpt-image-2` (or `$OPENAI_IMAGE_MODEL`) | OpenAI model ID to call. |
+
+Also configurable via env var (no CLI flag): `OPENAI_IMAGE_SIZE`,
+`OPENAI_IMAGE_QUALITY`, `OPENAI_IMAGE_BACKGROUND`, `OPENAI_IMAGE_MODERATION`
+— all default to `"auto"`, matching a manually-tested `client.images.edits()`
+call that produced a genuinely good full front page. Earlier attempts at
+tuning these individually (portrait size + `quality=high`) undershot that
+result; `"auto"` across the board plus the `gpt-image-2` model and the
+content-before-instructions prompt structure (see `run_pipeline.py`) is
+what actually matched it.
 
 #### Usage
 
@@ -190,7 +235,7 @@ python3 scripts/openai_image.py --prompt-file sessions/X/openai_image_prompt.txt
 
 Requires `OPENAI_API_KEY` in the environment (get one at
 https://platform.openai.com/api-keys). With one or more `--ref-image`s it
-calls `/v1/images/edits` (gpt-image-1 accepts several reference images per
+calls `/v1/images/edits` (gpt-image-2 accepts several reference images per
 call, sent as repeated `image[]` multipart fields); with none at all it
 calls `/v1/images/generations` (text-only) instead. Both return a
 `b64_json`-encoded PNG directly, decoded and written to `--out`.

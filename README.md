@@ -8,8 +8,8 @@ A custom Lua mod logs an omniscient snapshot of the game every turn (civs
 and their real in-game colors, cities, map, era, victory progress,
 religion, weather, historic moments).
 Once a session ends, that log gets parsed, summarized into a news article
-by Claude, illustrated by OpenAI's image model, and posted to Discord —
-no manual steps required.
+by Claude, illustrated by Gemini and OpenAI's image models, and posted to
+Discord — no manual steps required.
 
 ## How it works
 
@@ -27,8 +27,9 @@ windows_log_pusher.ps1  --scp-->              incoming/Automation.log
                                                       v
                                               run_pipeline.py
                               parse_mod_log.py -> claude -p x2 (article.md,
-                              openai_image_prompt.txt) -> openai_image.py x2
-                              (headliner.png, newspaper.png) -> post_discord.py
+                       openai_image_prompt.txt) -> nano_banana.py (Gemini,
+                        headliner.png) -> openai_image.py (OpenAI, newspaper.png)
+                                            -> post_discord.py
                                                       |
                                                       v
                               sessions/<name>/{article.md, headliner.png,
@@ -51,8 +52,10 @@ windows_log_pusher.ps1  --scp-->              incoming/Automation.log
    pipeline as soon as it does — the atomic handoff above means it never
    has to guess whether a file it sees is still mid-transfer.
 4. **`run_pipeline.py`** — parses the log into structured JSON, generates
-   the article and a front-page image via two headless `claude -p` calls
-   and two OpenAI image calls, then posts the result to Discord.
+   the article via two headless `claude -p` calls, the headliner
+   illustration via Gemini, and the newspaper front page via OpenAI (each
+   backend picked for whichever image it was judged better at), then posts
+   the result to Discord.
 
 Full reference for every script (params, flags, behavior notes) lives in
 [`docs/scripts.md`](docs/scripts.md).
@@ -79,14 +82,15 @@ Full reference for every script (params, flags, behavior notes) lives in
 Requires:
 - A Civ VI installation with a subscrition to the [`mod in the workshop`](https://steamcommunity.com/sharedfiles/filedetails/?id=3768059294) and having the mod enabled
 - Claude code running on the pipeline machine
-- An OpenAI API key (image generation)
+- A Gemini API key (headliner illustration) and an OpenAI API key (newspaper front page) — two different image backends, see `docs/scripts.md`
 - A Discord incoming webhook URL (for posting results)
 
 Environment variables (used by `run_pipeline.py`):
 
 | Variable | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Image generation (`gpt-image-1`) |
+| `GEMINI_API_KEY` | Headliner illustration (`gemini-2.5-flash-image`, via `nano_banana.py`) |
+| `OPENAI_API_KEY` | Newspaper front page (`gpt-image-2`, via `openai_image.py`) |
 | `DISCORD_WEBHOOK_URL` | Posting the generated newspaper to Discord |
 | `DISCORD_POST_ARTICLE_TEXT` | Optional; set to `0`/`false` to post the image only, without the article text follow-up |
 
