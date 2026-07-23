@@ -17,7 +17,7 @@
 -- so downstream tooling gets full data regardless of what any single human
 -- player has explored or met.
 
-local MARKER = "CIV6STATS_V3"
+local MARKER = "CIV6STATS_V4"
 
 -- Terrain/feature/resource name tables never change during a game, but
 -- dump them every turn anyway rather than gating on a "logged once" flag —
@@ -583,6 +583,136 @@ local function DumpNotableEvents()
 	Automation.Log(table.concat(lines, "\n"));
 end
 
+-- Game.GetWinningTeam() (confirmed real API) only says which TEAM won, not
+-- which victory condition triggered -- there's no single "what won it"
+-- accessor. This checks each condition in a fixed priority order using the
+-- same per-civ state civ6-mcp's own victory.py query and the base game's
+-- Victory Progress screen already rely on (science/diplomatic victory
+-- points, culture dominance, religion majority, original-capital
+-- ownership). Best-effort: if the winner satisfies more than one
+-- condition simultaneously the first match below wins, and ties/edge cases
+-- (e.g. a conquest that finishes the same turn a space launch completes)
+-- aren't disambiguated further.
+local function DetermineVictoryType(winnerID)
+	local winner = Players[winnerID];
+	if winner == nil then return "UNKNOWN"; end
+
+	-- Domination: every other living major has lost their original capital
+	-- to the winner, or isn't alive at all.
+	local isDomination = true;
+	local sawOtherMajor = false;
+	pcall(function()
+		for k = 0, 62 do
+			if k ~= winnerID and Players[k] and Players[k]:IsMajor() then
+				if Players[k]:IsAlive() then
+					sawOtherMajor = true;
+					local lost = false;
+					pcall(function()
+						local cap = Players[k]:GetCities():GetCapitalCity();
+						if cap == nil then
+							lost = true;
+						else
+							lost = cap:IsOriginalCapital() and cap:GetOwner() == winnerID;
+						end
+					end);
+					if not lost then isDomination = false; end
+				end
+			end
+		end
+	end);
+	if isDomination and sawOtherMajor then return "DOMINATION"; end
+
+	-- Science: space race points reached (same field DumpDemographics
+	-- already tracks as scivp/scineeded).
+	local sciDone = false;
+	pcall(function()
+		local st = winner:GetStats();
+		local vp = st:GetScienceVictoryPoints();
+		local needed = st:GetScienceVictoryPointsTotalNeeded();
+		sciDone = needed > 0 and vp >= needed;
+	end);
+	if sciDone then return "SCIENCE"; end
+
+	-- Diplomatic: hits the required diplomatic victory point threshold
+	-- (20 by default; read from GlobalParameters if the ruleset overrides it).
+	local diploDone = false;
+	pcall(function()
+		local vp = winner:GetStats():GetDiplomaticVictoryPoints();
+		local needed = 20;
+		pcall(function() needed = GameInfo.GlobalParameters["DIPLOMATIC_VICTORY_POINTS_REQUIRED"].Value; end);
+		diploDone = vp >= needed;
+	end);
+	if diploDone then return "DIPLOMATIC"; end
+
+	-- Culture: dominant (more foreign tourists than their domestic) over
+	-- every other living major.
+	local cultureDone = true;
+	local sawOtherForCulture = false;
+	pcall(function()
+		local wCul = winner:GetCulture();
+		for k = 0, 62 do
+			if k ~= winnerID and Players[k] and Players[k]:IsMajor() and Players[k]:IsAlive() then
+				sawOtherForCulture = true;
+				local dominant = false;
+				pcall(function() dominant = wCul:IsDominantOver(k); end);
+				if not dominant then cultureDone = false; end
+			end
+		end
+	end);
+	if cultureDone and sawOtherForCulture then return "CULTURE"; end
+
+	-- Religious: winner's own founded religion is the majority religion in
+	-- every other living major's cities.
+	local religiousDone = true;
+	local sawOtherForReligion = false;
+	pcall(function()
+		local relType = winner:GetReligion():GetReligionTypeCreated();
+		if relType >= 0 then
+			for k = 0, 62 do
+				if k ~= winnerID and Players[k] and Players[k]:IsMajor() and Players[k]:IsAlive() then
+					sawOtherForReligion = true;
+					local ok, majRel = pcall(function() return Players[k]:GetReligion():GetReligionInMajorityOfCities(); end);
+					if not (ok and majRel == relType) then religiousDone = false; end
+				end
+			end
+		else
+			religiousDone = false;
+		end
+	end);
+	if religiousDone and sawOtherForReligion then return "RELIGIOUS"; end
+
+	-- None of the above matched -- most likely a score victory (turn/time
+	-- limit reached with no other condition met).
+	return "SCORE";
+end
+
+-- Whether the game has ended in a victory at all, and if so, who and how.
+-- Logged unconditionally every turn once true (no "logged once" flag) --
+-- same reasoning as the map-lookup tables above: a flag in memory has no
+-- way to know if on-disk data it's guarding got truncated/rotated away.
+local function DumpVictoryStatus()
+	local turn = Game.GetCurrentGameTurn();
+	local winningTeam = -1;
+	pcall(function() winningTeam = Game.GetWinningTeam(); end);
+	if winningTeam == nil or winningTeam < 0 then return; end
+
+	local winnerIDs = {};
+	for i = 0, 62 do
+		if Players[i] and Players[i]:IsAlive() then
+			local ok, team = pcall(function() return Players[i]:GetTeam(); end);
+			if ok and team == winningTeam then table.insert(winnerIDs, i); end
+		end
+	end
+
+	local vtype = "UNKNOWN";
+	if #winnerIDs > 0 then
+		local ok, result = pcall(function() return DetermineVictoryType(winnerIDs[1]); end);
+		if ok then vtype = result; end
+	end
+
+	Automation.Log(MARKER.."|VICTORYACHIEVED|"..turn.."|"..table.concat(winnerIDs, ",").."|"..vtype);
+end
+
 local function OnTurnBegin()
 	-- Never let a query failure (e.g. an API shape change in some future
 	-- patch) propagate and disrupt actual turn processing.
@@ -593,6 +723,7 @@ local function OnTurnBegin()
 	pcall(DumpDemographics);
 	pcall(DumpReligion);
 	pcall(DumpNotableEvents);
+	pcall(DumpVictoryStatus);
 end
 
 Events.TurnBegin.Add(OnTurnBegin);

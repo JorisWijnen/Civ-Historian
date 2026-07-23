@@ -99,12 +99,19 @@ systemd user service works well) so it's ready whenever a new log arrives.
 
 ## Known limitations
 
-- **Log format is versioned** (`CIV6STATS_V3`, `CIV6UNITOPS_V2`,
+- **Log format is versioned** (`CIV6STATS_V4`, `CIV6UNITOPS_V2`,
   `CIV6EVENTS_V2` marker tags) so an out-of-date mod produces a loud
   "no turn blocks found" instead of silently parsing into wrong data.
 - **Weather/disaster and historic-moment detection are unverified.** They're
   built on a best-effort reading of Civ6's notification API and haven't
   been confirmed to work correctly for anything beyond the local player in
-  a real multiplayer session. Era, victory-condition, and religion tracking
+  a real multiplayer session. Era, victory-progress, and religion tracking
   are solid by comparison.
+- **Victory *type* detection is a best-effort heuristic, not a direct API
+  result.** `Game.GetWinningTeam()` (confirmed real) only says a team won,
+  not which condition triggered it — the mod infers the type by checking
+  science/diplomatic/culture/religious/domination conditions in a fixed
+  priority order and falling back to `SCORE`. Untested against a real game
+  ending; edge cases (e.g. two conditions completing the same turn) aren't
+  disambiguated further.
 - `windows_log_pusher.ps1` is meant to be run once after a session has ended, and before the game has rebooted clearing the log files.

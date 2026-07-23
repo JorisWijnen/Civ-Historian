@@ -6,9 +6,9 @@ recap, posted to Discord.
 
 The log itself is written by `mod/StatsDumper/StatsDumper.lua` during
 play — an omniscient per-turn snapshot (civs and their real in-game colors,
-cities, map, era, victory progress, religion, weather/disaster and
-historic-moment notifications) logged via the game's own
-`Automation.Log()`.
+cities, map, era, victory progress, whether/how/who has actually won,
+religion, weather/disaster and historic-moment notifications) logged via
+the game's own `Automation.Log()`.
 
 ### `windows_log_pusher.ps1` (runs on the Windows gaming PC)
 

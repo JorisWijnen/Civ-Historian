@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parse the StatsDumper mod's Automation.log output into per-turn JSON files.
 
-Reads CIV6STATS_V3|... lines (written by mod/StatsDumper/StatsDumper.lua via
+Reads CIV6STATS_V4|... lines (written by mod/StatsDumper/StatsDumper.lua via
 Automation.Log() on every Events.TurnBegin) and writes JSON files per turn:
 
   turnNNN-civs.json         -- players roster + per-major-civ stats, including
@@ -14,7 +14,10 @@ Automation.Log() on every Events.TurnBegin) and writes JSON files per turn:
                                 "_raw_tiles" grid needed by
                                 render_map_lib.render_map
   turnNNN-demographics.json -- current era + per-civ era score/age, enabled
-                                victory types, and per-civ victory progress
+                                victory types, per-civ victory progress, and
+                                victory_achieved (null until the game has
+                                actually been won -- then winner id(s)/name(s)
+                                and a best-effort victory type)
   turnNNN-religion.json     -- per-civ founded religion/pantheon/majority
                                 religion/faith balance
   turnNNN-weather.json      -- disaster/weather notifications seen this turn
@@ -50,7 +53,7 @@ from dump_stats import (  # noqa: E402
     parse_map_tiles,
 )
 
-PREFIX = "CIV6STATS_V3|"
+PREFIX = "CIV6STATS_V4|"
 UNITOPS_PREFIX = "CIV6UNITOPS_V2|"
 EVENTS_PREFIX = "CIV6EVENTS_V2|"
 HISTORIC_MOMENTS_CSV = os.path.join(REPO_ROOT, "assets", "historic_moments.csv")
@@ -101,7 +104,7 @@ def split_turn_blocks(path: str, prefix: str = PREFIX) -> dict[int, list[str]]:
     TURN|N...END|N bracket match would miss data logged in a later, separate
     call within the same turn. Keying directly off each line's own turn
     field sidesteps that. `prefix` selects which marker family to bucket
-    (CIV6STATS_V3 or CIV6EVENTS_V2).
+    (CIV6STATS_V4 or CIV6EVENTS_V2).
     """
     blocks: dict[int, list[str]] = {}
     with open(path) as f:
@@ -161,6 +164,7 @@ def parse_turn_block(
     era_type = "UNKNOWN"
     era_index = -1
     enabled_victories: list[str] = []
+    victory_achieved: dict | None = None
     civdemo: dict[int, dict] = {}
     civreligion: dict[int, dict] = {}
 
@@ -234,6 +238,12 @@ def parse_turn_block(
         elif tag == "VICTORYENABLED":
             _, _turn, vtype = line.split("|", 2)
             enabled_victories.append(vtype)
+        elif tag == "VICTORYACHIEVED":
+            _, _turn, winner_ids_str, victory_type = line.split("|", 3)
+            victory_achieved = {
+                "winner_ids": [int(x) for x in winner_ids_str.split(",") if x],
+                "type": victory_type,
+            }
         elif tag == "CIVDEMO":
             _, _turn, pid, rest = line.split("|", 3)
             pid = int(pid)
@@ -284,11 +294,16 @@ def parse_turn_block(
         entry["name"] = name_by_id.get(pid, f"player{pid}")
     for pid, entry in civreligion.items():
         entry["name"] = name_by_id.get(pid, f"player{pid}")
+    if victory_achieved is not None:
+        victory_achieved["winner_names"] = [
+            name_by_id.get(pid, f"player{pid}") for pid in victory_achieved["winner_ids"]
+        ]
 
     demographics_data = {
         "meta": {"turn": turn, "source": "StatsDumper mod (Automation.log)"},
         "era": {"type": era_type, "index": era_index},
         "enabled_victories": enabled_victories,
+        "victory_achieved": victory_achieved,
         "civs": [civdemo[pid] for pid in order if pid in civdemo],
     }
     religion_data = {
@@ -458,7 +473,7 @@ def main() -> None:
     os.makedirs(args.out, exist_ok=True)
     blocks = split_turn_blocks(args.log)
     if not blocks:
-        print("No CIV6STATS_V3 turn blocks found in log.")
+        print("No CIV6STATS_V4 turn blocks found in log.")
         return
     event_blocks = extract_notable_events(args.log)
 
