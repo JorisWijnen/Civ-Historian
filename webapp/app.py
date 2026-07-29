@@ -63,10 +63,10 @@ def run():
     # Saved next to sessions/ (same volume as the eventual session dir)
     # rather than /tmp, then copied in by setup_session() and removed below.
     tmp_upload = SESSIONS / f".upload-{session_name}.log"
-    upload.save(tmp_upload)
 
     session_dir = None
     try:
+        upload.save(tmp_upload)
         session_dir = setup_session(session_name, log_path=tmp_upload)
         discord_status = run_pipeline(
             session_dir, webhook_url=webhook_url, post_article_text=post_article_text,
