@@ -1,0 +1,294 @@
+/* Civ Historian webapp -- shared theme.
+   Dark map-table background, parchment panels, gold/bronze trim -- matches
+   the Civilization VI UI language rather than a generic form-app look. */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --bg-deep: #12151a;
+  --bg-deep-2: #1b2028;
+  --gold: #c9a227;
+  --gold-light: #e6c76b;
+  --gold-dim: #8a6f22;
+  --parchment: #f2e8d0;
+  --parchment-edge: #e3d5ac;
+  --ink: #2b2013;
+  --ink-soft: #4a3c26;
+  --success-a: #4f7a3a;
+  --success-b: #2f4a24;
+  --danger-a: #8a2b28;
+  --danger-b: #591a18;
+  --shadow: rgba(0, 0, 0, 0.55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 1.15rem;
+  color: var(--parchment);
+  background:
+    radial-gradient(ellipse at 50% -10%, #232a34 0%, var(--bg-deep) 55%, #0b0d10 100%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 42px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 42px);
+  background-attachment: fixed;
+  min-height: 100vh;
+  padding: 3rem 1.25rem 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.page {
+  width: 100%;
+  max-width: 760px;
+}
+
+/* -- Header / crest -------------------------------------------------- */
+
+.crest {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.crest h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 2.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--gold-light);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 24px rgba(230, 199, 107, 0.25);
+}
+
+.crest .subtitle {
+  font-family: 'EB Garamond', serif;
+  font-style: italic;
+  color: #b9c2cf;
+  margin-top: 0.4rem;
+  font-size: 1rem;
+}
+
+.crest .rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem auto 0;
+  max-width: 320px;
+  color: var(--gold-dim);
+}
+
+.crest .rule::before,
+.crest .rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+}
+
+.crest .rule span {
+  font-size: 0.9rem;
+  color: var(--gold);
+}
+
+/* -- Panels (double gold border = Civ6 engraved-frame look) ---------- */
+
+.panel {
+  background: var(--parchment);
+  color: var(--ink);
+  border: 6px double var(--gold);
+  border-radius: 2px;
+  padding: 2rem 2.25rem;
+  box-shadow: 0 16px 40px var(--shadow), inset 0 0 0 1px var(--parchment-edge);
+  margin-bottom: 1.5rem;
+}
+
+.panel h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom: 2px solid var(--gold);
+  padding-bottom: 0.4rem;
+  margin: 1.75rem 0 1rem;
+}
+
+.panel h2:first-child { margin-top: 0; }
+
+.panel p.lede {
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* -- Form -------------------------------------------------------------*/
+
+.field {
+  margin-bottom: 1.4rem;
+}
+
+.field label {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.5rem;
+}
+
+.field .hint {
+  font-family: 'EB Garamond', serif;
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
+  color: #7a6a48;
+  font-size: 0.85rem;
+}
+
+input[type="file"],
+input[type="text"] {
+  width: 100%;
+  font-family: 'EB Garamond', serif;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.75rem;
+  background: #fbf6ea;
+  border: 2px solid var(--gold-dim);
+  border-radius: 2px;
+  color: var(--ink);
+}
+
+input[type="text"]:focus,
+input[type="file"]:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.checkbox-row label {
+  margin: 0;
+  text-transform: none;
+  font-family: 'EB Garamond', serif;
+  letter-spacing: normal;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.checkbox-row input { width: 1.15rem; height: 1.15rem; accent-color: var(--gold-dim); }
+
+/* -- Buttons ------------------------------------------------------- */
+
+.btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--gold-light), var(--gold));
+  border: 2px solid var(--ink-soft);
+  border-radius: 3px;
+  padding: 0.75rem 1.75rem;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--ink-soft), 0 8px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--ink-soft), 0 12px 20px rgba(0, 0, 0, 0.45); }
+.btn:active { transform: translateY(1px); box-shadow: 0 2px 0 var(--ink-soft), 0 4px 10px rgba(0, 0, 0, 0.4); }
+
+a.link-back {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--gold-light);
+  text-decoration: none;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+a.link-back:hover { text-decoration: underline; }
+
+/* -- Status ribbons -------------------------------------------------- */
+
+.ribbon {
+  font-family: 'Cinzel', serif;
+  text-align: center;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  padding: 0.85rem 1rem;
+  border-radius: 2px;
+  margin: 0 0 1.5rem;
+  color: #f4ecd8;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+}
+
+.ribbon.ok {
+  background: linear-gradient(180deg, var(--success-a), var(--success-b));
+  box-shadow: 0 4px 12px rgba(47, 74, 36, 0.5);
+}
+
+.ribbon.fail {
+  background: linear-gradient(180deg, var(--danger-a), var(--danger-b));
+  box-shadow: 0 4px 12px rgba(89, 26, 24, 0.5);
+}
+
+.ribbon.neutral {
+  background: linear-gradient(180deg, #55565c, #34353a);
+}
+
+/* -- Image frames ------------------------------------------------- */
+
+.frame {
+  margin-bottom: 1.75rem;
+}
+
+.frame figcaption {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: center;
+  margin-top: 0.6rem;
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  border: 6px double var(--gold-dim);
+  border-radius: 2px;
+  background: #000;
+}
+
+/* -- Misc ------------------------------------------------------------*/
+
+.footnote {
+  text-align: center;
+  color: #7f8794;
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-top: 2rem;
+}
+
+pre.error-detail {
+  white-space: pre-wrap;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  background: #e9dfc4;
+  border: 1px solid var(--gold-dim);
+  border-radius: 2px;
+  padding: 1rem;
+  color: var(--ink);
+}

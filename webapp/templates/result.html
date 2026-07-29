@@ -2,43 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Civ Historian - {{ session_name }}</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1rem; color: #222; }
-  h1 { font-size: 1.4rem; }
-  img { max-width: 100%; border: 1px solid #ccc; margin-top: 0.5rem; }
-  .status { padding: 0.6rem 0.9rem; border-radius: 4px; margin: 1rem 0; }
-  .ok { background: #e6f4ea; color: #1e4620; }
-  .fail { background: #fdecea; color: #611a15; }
-  a.back { display: inline-block; margin-top: 2rem; }
-</style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>Session: {{ session_name }}</h1>
+<div class="page">
+  <div class="crest">
+    <h1>Civ Historian</h1>
+    <div class="rule"><span>&#9670;</span></div>
+    <p class="subtitle">{{ session_name }}</p>
+  </div>
 
   {% if discord_status is none %}
-    <div class="status">Image generation was skipped or not reached (see server logs).</div>
+    <div class="ribbon neutral">Image generation was skipped or not reached</div>
   {% elif discord_status.posted %}
-    <div class="status ok">Posted to Discord successfully.</div>
+    <div class="ribbon ok">Posted to Discord</div>
   {% else %}
-    <div class="status fail">Discord post failed: {{ discord_status.error }}</div>
+    <div class="ribbon fail">Discord post failed: {{ discord_status.error }}</div>
   {% endif %}
 
-  {% if newspaper_exists %}
-    <h2>newspaper.png</h2>
-    <img src="/sessions/{{ session_name }}/newspaper.png" alt="newspaper.png">
-  {% endif %}
+  <div class="panel">
+    {% if newspaper_exists %}
+    <h2>Front page</h2>
+    <figure class="frame">
+      <img src="/sessions/{{ session_name }}/newspaper.png" alt="newspaper.png">
+      <figcaption>newspaper.png</figcaption>
+    </figure>
+    {% endif %}
 
-  {% if headliner_exists %}
-    <h2>headliner.png</h2>
-    <img src="/sessions/{{ session_name }}/headliner.png" alt="headliner.png">
-  {% endif %}
+    {% if headliner_exists %}
+    <h2>Headliner illustration</h2>
+    <figure class="frame">
+      <img src="/sessions/{{ session_name }}/headliner.png" alt="headliner.png">
+      <figcaption>headliner.png</figcaption>
+    </figure>
+    {% endif %}
 
-  {% if article_exists %}
-    <h2>article.md</h2>
-    <p><a href="/sessions/{{ session_name }}/article.md">View article.md</a></p>
-  {% endif %}
+    {% if article_exists %}
+    <h2>Article</h2>
+    <p><a class="link-back" href="/sessions/{{ session_name }}/article.md">Read article.md &rarr;</a></p>
+    {% endif %}
+  </div>
 
-  <a class="back" href="/">&laquo; Run another</a>
+  <a class="link-back" href="/">&laquo; Run another</a>
+</div>
 </body>
 </html>
