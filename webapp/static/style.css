@@ -2,7 +2,7 @@
    Dark map-table background, parchment panels, gold/bronze trim -- matches
    the Civilization VI UI language rather than a generic form-app look. */
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Work+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
 :root {
   --bg-deep: #12151a;
@@ -29,7 +29,7 @@ html, body {
 }
 
 body {
-  font-family: 'EB Garamond', Georgia, serif;
+  font-family: 'Work Sans', system-ui, sans-serif;
   font-size: 1.15rem;
   color: var(--parchment);
   background:
@@ -56,7 +56,7 @@ body {
 }
 
 .crest h1 {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-weight: 700;
   font-size: 2.1rem;
   letter-spacing: 0.12em;
@@ -67,7 +67,7 @@ body {
 }
 
 .crest .subtitle {
-  font-family: 'EB Garamond', serif;
+  font-family: 'Work Sans', system-ui, sans-serif;
   font-style: italic;
   color: #b9c2cf;
   margin-top: 0.4rem;
@@ -109,7 +109,7 @@ body {
 }
 
 .panel h2 {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 1.05rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -134,7 +134,7 @@ body {
 
 .field label {
   display: block;
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -143,7 +143,7 @@ body {
 }
 
 .field .hint {
-  font-family: 'EB Garamond', serif;
+  font-family: 'Work Sans', system-ui, sans-serif;
   text-transform: none;
   letter-spacing: normal;
   font-style: italic;
@@ -154,7 +154,7 @@ body {
 input[type="file"],
 input[type="text"] {
   width: 100%;
-  font-family: 'EB Garamond', serif;
+  font-family: 'Work Sans', system-ui, sans-serif;
   font-size: 1.05rem;
   padding: 0.6rem 0.75rem;
   background: #fbf6ea;
@@ -179,7 +179,7 @@ input[type="file"]:focus {
 .checkbox-row label {
   margin: 0;
   text-transform: none;
-  font-family: 'EB Garamond', serif;
+  font-family: 'Work Sans', system-ui, sans-serif;
   letter-spacing: normal;
   font-size: 1rem;
   color: var(--ink);
@@ -190,7 +190,7 @@ input[type="file"]:focus {
 /* -- Buttons ------------------------------------------------------- */
 
 .btn {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 0.9rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -212,7 +212,7 @@ a.link-back {
   margin-top: 1.5rem;
   color: var(--gold-light);
   text-decoration: none;
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 0.85rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -222,7 +222,7 @@ a.link-back:hover { text-decoration: underline; }
 /* -- Status ribbons -------------------------------------------------- */
 
 .ribbon {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   text-align: center;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -255,7 +255,7 @@ a.link-back:hover { text-decoration: underline; }
 }
 
 .frame figcaption {
-  font-family: 'Cinzel', serif;
+  font-family: 'Bricolage Grotesque', sans-serif;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
