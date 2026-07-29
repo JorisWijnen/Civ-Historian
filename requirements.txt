@@ -1,0 +1,7 @@
+requests>=2.31,<3
+Pillow>=10,<12
+google-genai>=0.3,<2
+imageio>=2.34,<3
+imageio-ffmpeg>=0.4,<1
+Flask>=3,<4
+gunicorn>=22,<24

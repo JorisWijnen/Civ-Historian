@@ -1,0 +1,19 @@
+services:
+  civ6-webapp:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./sessions:/app/sessions
+      # Reuses whatever already works interactively on this host for the
+      # `claude -p` calls run_pipeline.py shells out to, read-only.
+      # If this doesn't work headlessly in a container (unverified, see
+      # docs/webapp.md), switch to an ANTHROPIC_API_KEY env var instead.
+      - ${HOME}/.claude:/app/.claude:ro
+    env_file:
+      - .env
+    # Export UID/GID before `docker compose up` (bash doesn't export them
+    # by default) so bind-mounted sessions/ output is host-user-owned,
+    # not root-owned:  export UID GID; docker compose up -d
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped

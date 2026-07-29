@@ -50,18 +50,30 @@ def new_session_name() -> str:
     return "session_" + time.strftime("%Y%m%d_%H%M%S")
 
 
-def setup_session(session_name: str) -> Path:
+def setup_session(session_name: str, log_path: Path | None = None) -> Path:
     """Step 3: parse the incoming log, create the session folder, copy in
     the prompt templates with SESSIONX substituted, and archive the raw
     source logs out of incoming/ (so the *next* run always starts from a
     clean log - a leftover earlier game's data bleeding into a later run's
-    parse has bitten us twice already doing this by hand)."""
+    parse has bitten us twice already doing this by hand).
+
+    If log_path is given (e.g. a file uploaded via the webapp), it's copied
+    into session_dir/raw_logs/Automation.log and parsed from there instead
+    of the incoming/ drop zone - that file was never in incoming/ and
+    log_watcher.py doesn't own it, so nothing should be moved/deleted out
+    from under it."""
     session_dir = SESSIONS / session_name
     session_dir.mkdir(parents=True, exist_ok=False)
+    raw_dir = session_dir / "raw_logs"
+    raw_dir.mkdir()
 
-    automation_log = INCOMING / "Automation.log"
-    if not automation_log.exists():
-        raise FileNotFoundError(f"{automation_log} not found - nothing to process")
+    if log_path is not None:
+        automation_log = raw_dir / "Automation.log"
+        shutil.copy(str(log_path), str(automation_log))
+    else:
+        automation_log = INCOMING / "Automation.log"
+        if not automation_log.exists():
+            raise FileNotFoundError(f"{automation_log} not found - nothing to process")
 
     print(f"[{session_name}] parsing {automation_log} ...")
     subprocess.run(
@@ -78,12 +90,11 @@ def setup_session(session_name: str) -> Path:
         text = text.replace("SESSIONX", session_name)
         (session_dir / template_name).write_text(text)
 
-    raw_dir = session_dir / "raw_logs"
-    raw_dir.mkdir()
-    for name in LOG_FILES:
-        src = INCOMING / name
-        if src.exists():
-            shutil.move(str(src), str(raw_dir / name))
+    if log_path is None:
+        for name in LOG_FILES:
+            src = INCOMING / name
+            if src.exists():
+                shutil.move(str(src), str(raw_dir / name))
 
     return session_dir
 
@@ -120,14 +131,27 @@ def match_leader_images(prompt_text: str) -> list[Path]:
     return matches
 
 
-def generate_images(session_dir: Path) -> None:
+def generate_images(
+    session_dir: Path,
+    webhook_url: str | None = None,
+    post_article_text: bool | None = None,
+) -> dict:
     """Steps 6/7: image generation calls -- mixed backend on purpose.
     headliner.png uses Gemini (nano_banana.py) since its output won out for
     a single character-focused scene; newspaper.png uses OpenAI
     (openai_image.py) since its text/layout handling won out for the dense
     front-page composite. Raises RuntimeError (caller decides what to do)
     if GEMINI_API_KEY isn't set yet -- that failure happens on the very
-    first call below, before there's anything to fall back to."""
+    first call below, before there's anything to fall back to.
+
+    webhook_url/post_article_text let a caller (the webapp) override the
+    DISCORD_WEBHOOK_URL/DISCORD_POST_ARTICLE_TEXT env vars on a per-request
+    basis; None (the CLI/log_watcher.py default) falls back to the env var
+    exactly as before.
+
+    Returns a {"posted": bool, "error": str | None} dict describing the
+    Discord post outcome -- the CLI ignores it, the webapp uses it to show
+    a success/failure status on the result page."""
     sys.path.insert(0, str(REPO_ROOT / "scripts"))
     from nano_banana import generate_image as generate_image_gemini  # noqa: E402
     from openai_image import generate_image as generate_image_openai  # noqa: E402
@@ -173,23 +197,75 @@ def generate_images(session_dir: Path) -> None:
 
     from post_discord import post_to_discord  # noqa: E402
 
-    include_article_text = os.environ.get("DISCORD_POST_ARTICLE_TEXT", "1").strip().lower() \
-        not in ("0", "false", "no")
+    if post_article_text is not None:
+        include_article_text = post_article_text
+    else:
+        include_article_text = os.environ.get("DISCORD_POST_ARTICLE_TEXT", "1").strip().lower() \
+            not in ("0", "false", "no")
+    resolved_webhook_url = webhook_url if webhook_url is not None else os.environ.get("DISCORD_WEBHOOK_URL")
+    discord_status = {"posted": False, "error": None}
     try:
         suffix = " + article.md" if include_article_text else " (article.md text skipped)"
         print(f"  posting {discord_image_path.name}{suffix} to Discord ...")
         post_to_discord(
-            os.environ.get("DISCORD_WEBHOOK_URL"),
+            resolved_webhook_url,
             discord_image_path,
             article_text,
             label=session_dir.name,
             include_article_text=include_article_text,
         )
+        discord_status["posted"] = True
     except Exception as e:
         # Local artifacts (article.md, headliner.png/newspaper.png) are
         # already done at this point -- a Discord hiccup (missing webhook,
         # network blip) shouldn't take down an otherwise-successful run.
         print(f"  Discord post skipped: {e}", file=sys.stderr)
+        discord_status["error"] = str(e)
+
+    return discord_status
+
+
+def run_pipeline(
+    session_dir: Path,
+    skip_images: bool = False,
+    webhook_url: str | None = None,
+    post_article_text: bool | None = None,
+) -> dict | None:
+    """Steps 4-8: article + image-prompt generation, then (unless
+    skip_images) the image-generation/Discord-posting steps in
+    generate_images(). Shared by both the CLI (main(), below) and the
+    webapp so there's one orchestration path instead of two.
+
+    Returns generate_images()'s Discord-status dict, or None if images were
+    skipped or image generation itself failed before reaching that step."""
+    if not (session_dir / "article.md").exists():
+        run_claude(session_dir / "article.prompt.txt")
+    else:
+        print("  article.md already exists, skipping step 4")
+
+    if not (session_dir / IMAGE_PROMPT_NAME).exists():
+        run_claude(session_dir / "prompt_gen.prompt.txt")
+    else:
+        print(f"  {IMAGE_PROMPT_NAME} already exists, skipping step 5")
+
+    if skip_images:
+        print(f"Done (images skipped). Session: {session_dir}")
+        return None
+
+    try:
+        discord_status = generate_images(session_dir, webhook_url=webhook_url, post_article_text=post_article_text)
+    except RuntimeError as e:
+        print(f"Image generation skipped: {e}", file=sys.stderr)
+        print(
+            f"article.md and {IMAGE_PROMPT_NAME} are ready in {session_dir}. "
+            f"Re-run with --session-name {session_dir.name} once GEMINI_API_KEY/"
+            f"OPENAI_API_KEY are set to pick up from here.",
+            file=sys.stderr,
+        )
+        return None
+
+    print(f"Done. Session: {session_dir}")
+    return discord_status
 
 
 def main() -> None:
@@ -209,33 +285,7 @@ def main() -> None:
     else:
         session_dir = setup_session(new_session_name())
 
-    if not (session_dir / "article.md").exists():
-        run_claude(session_dir / "article.prompt.txt")
-    else:
-        print("  article.md already exists, skipping step 4")
-
-    if not (session_dir / IMAGE_PROMPT_NAME).exists():
-        run_claude(session_dir / "prompt_gen.prompt.txt")
-    else:
-        print(f"  {IMAGE_PROMPT_NAME} already exists, skipping step 5")
-
-    if args.skip_images:
-        print(f"Done (images skipped). Session: {session_dir}")
-        return
-
-    try:
-        generate_images(session_dir)
-    except RuntimeError as e:
-        print(f"Image generation skipped: {e}", file=sys.stderr)
-        print(
-            f"article.md and {IMAGE_PROMPT_NAME} are ready in {session_dir}. "
-            f"Re-run with --session-name {session_dir.name} once GEMINI_API_KEY/"
-            f"OPENAI_API_KEY are set to pick up from here.",
-            file=sys.stderr,
-        )
-        return
-
-    print(f"Done. Session: {session_dir}")
+    run_pipeline(session_dir, skip_images=args.skip_images)
 
 
 if __name__ == "__main__":

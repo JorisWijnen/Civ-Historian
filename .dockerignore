@@ -1,0 +1,9 @@
+.git
+sessions/
+incoming/
+logs/
+mod/
+.claude/
+__pycache__/
+*.pyc
+.env

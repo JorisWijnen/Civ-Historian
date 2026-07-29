@@ -169,6 +169,14 @@ python3 scripts/run_pipeline.py --session-name session_20260718_222916   # resum
   whether step 8 also posts `article.md`'s full text after the image.
   Defaults to on, but since OpenAI's `newspaper.png` renders the article
   legibly on its own, the text follow-up is often redundant now.
+- `setup_session()`, `generate_images()`, and the new `run_pipeline()`
+  (steps 4-8, extracted out of `main()`) all take additional optional
+  params (`log_path`, `webhook_url`, `post_article_text`) purely so the
+  webapp (see [`docs/webapp.md`](webapp.md)) can supply an uploaded log
+  file and a per-request Discord webhook/text-toggle instead of
+  `incoming/Automation.log` and the environment variables above. None of
+  this changes CLI or `log_watcher.py` behavior — every param defaults to
+  `None`/off, falling back to exactly what's documented above.
 
 ### `nano_banana.py`
 

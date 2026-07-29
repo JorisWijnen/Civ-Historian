@@ -4,3 +4,4 @@ sessions/*
 !sessions/.gitkeep
 incoming/*
 logs/*
+.env

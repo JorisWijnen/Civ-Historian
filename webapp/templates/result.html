@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Civ Historian - {{ session_name }}</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.4rem; }
+  img { max-width: 100%; border: 1px solid #ccc; margin-top: 0.5rem; }
+  .status { padding: 0.6rem 0.9rem; border-radius: 4px; margin: 1rem 0; }
+  .ok { background: #e6f4ea; color: #1e4620; }
+  .fail { background: #fdecea; color: #611a15; }
+  a.back { display: inline-block; margin-top: 2rem; }
+</style>
+</head>
+<body>
+  <h1>Session: {{ session_name }}</h1>
+
+  {% if discord_status is none %}
+    <div class="status">Image generation was skipped or not reached (see server logs).</div>
+  {% elif discord_status.posted %}
+    <div class="status ok">Posted to Discord successfully.</div>
+  {% else %}
+    <div class="status fail">Discord post failed: {{ discord_status.error }}</div>
+  {% endif %}
+
+  {% if newspaper_exists %}
+    <h2>newspaper.png</h2>
+    <img src="/sessions/{{ session_name }}/newspaper.png" alt="newspaper.png">
+  {% endif %}
+
+  {% if headliner_exists %}
+    <h2>headliner.png</h2>
+    <img src="/sessions/{{ session_name }}/headliner.png" alt="headliner.png">
+  {% endif %}
+
+  {% if article_exists %}
+    <h2>article.md</h2>
+    <p><a href="/sessions/{{ session_name }}/article.md">View article.md</a></p>
+  {% endif %}
+
+  <a class="back" href="/">&laquo; Run another</a>
+</body>
+</html>
