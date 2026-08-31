@@ -1,5 +1,5 @@
 services:
-  civ-historian:
+  webapp:
       build: .
       ports:
         - "8006:8000"
