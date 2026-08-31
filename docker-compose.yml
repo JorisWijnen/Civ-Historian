@@ -1,10 +1,11 @@
-civ-historian:
-    build: .
-    ports:
-      - "8006:8000"
-    volumes:
-      - ./sessions:/app/sessions
-      - /home/joris/.claude:/app/.claude:ro
-    env_file:
-      - ./.env
-    restart: unless-stopped
+services:
+  civ-historian:
+      build: .
+      ports:
+        - "8006:8000"
+      volumes:
+        - ./sessions:/app/sessions
+        - /home/joris/.claude:/app/.claude:ro
+      env_file:
+        - ./.env
+      restart: unless-stopped
