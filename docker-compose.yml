@@ -4,7 +4,7 @@ civ-historian:
       - "8006:8000"
     volumes:
       - ./sessions:/app/sessions
-      - $HOME/.claude:/app/.claude:ro
+      - /home/joris/.claude:/app/.claude:ro
     env_file:
       - ./.env
     restart: unless-stopped
