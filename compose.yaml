@@ -3,11 +3,12 @@ services:
       build: .
       ports:
         - "8006:8000"
+      environment:
+        - HOME=/app/claude-home
       volumes:
         - /root/civ-historian/sessions:/app/sessions
         - /root/civ-historian/data:/app/data
-        - /root/.claude:/app/.claude
-        - /root/.claude.json:/app/.claude.json
+        - /root/civ-historian/claude-home:/app/claude-home
       user: "100000:100000"
       env_file:
         - ./.env
