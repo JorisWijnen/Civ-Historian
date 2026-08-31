@@ -9,9 +9,10 @@ is a plain synchronous HTML form POST (no JS/AJAX, no job queue) -- the
 browser's native spinner is enough for a single-user tool. Served by
 gunicorn with --timeout 0 so a long request isn't reaped mid-run.
 
-No auth in this iteration (local network only, Authentik SSO to be added
-later in front of this by the operator) -- so no CSRF/SECRET_KEY either,
-since no Flask session/flash state is used.
+No auth in this iteration beyond trusting the Authentik reverse-proxy in
+front of this app to inject X-authentik-uid (local network only) -- so no
+CSRF/SECRET_KEY either, since no Flask session/flash state is used. That
+header is also what per-user saved webhooks (webhooks.py) are keyed by.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ import time
 import traceback
 from pathlib import Path
 
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, redirect, render_template, request, send_from_directory, url_for
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SESSIONS = REPO_ROOT / "sessions"
@@ -29,10 +30,16 @@ SESSIONS.mkdir(exist_ok=True)
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from run_pipeline import setup_session, run_pipeline  # noqa: E402
 
+from webhooks import WebhookStore, uid_from_headers  # noqa: E402
+
 app = Flask(__name__)
 # Real raw Automation.log files observed so far run 2.8-24MB; 200MB is
 # generous headroom, not an attempt at an unbounded upload.
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
+
+# Deliberately NOT under sessions/ -- that whole tree is served verbatim by
+# /sessions/<path> below, which would leak other users' webhook URLs.
+webhook_store = WebhookStore(REPO_ROOT / "data" / "webhooks")
 
 
 def _new_web_session_name() -> str:
@@ -44,7 +51,8 @@ def _new_web_session_name() -> str:
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    uid = uid_from_headers(request.headers)
+    return render_template("index.html", webhooks=webhook_store.load(uid))
 
 
 @app.post("/run")
@@ -56,7 +64,19 @@ def run():
             message="No Automation.log file was uploaded.",
         ), 400
 
-    webhook_url = (request.form.get("webhook_url") or "").strip() or None
+    uid = uid_from_headers(request.headers)
+    # A hand-typed URL wins over a selected saved one, so picking a saved
+    # webhook and then editing it in the text field does what it looks
+    # like instead of silently reverting to the saved value.
+    webhook_url = (
+        (request.form.get("webhook_url") or "").strip()
+        or (request.form.get("webhook_choice") or "").strip()
+        or None
+    )
+    webhook_name = (request.form.get("webhook_name") or "").strip()
+    if webhook_url and webhook_name:
+        webhook_store.add(uid, webhook_name, webhook_url)
+
     post_article_text = "post_article_text" in request.form
 
     session_name = _new_web_session_name()
@@ -87,6 +107,15 @@ def run():
         article_exists=(session_dir / "article.md").exists(),
         discord_status=discord_status,
     )
+
+
+@app.post("/webhooks/delete")
+def delete_webhook():
+    uid = uid_from_headers(request.headers)
+    name = (request.form.get("name") or "").strip()
+    if name:
+        webhook_store.delete(uid, name)
+    return redirect(url_for("index"))
 
 
 @app.get("/sessions/<path:subpath>")

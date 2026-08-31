@@ -152,7 +152,8 @@ body {
 }
 
 input[type="file"],
-input[type="text"] {
+input[type="text"],
+select {
   width: 100%;
   font-family: 'Work Sans', system-ui, sans-serif;
   font-size: 1.05rem;
@@ -164,11 +165,67 @@ input[type="text"] {
 }
 
 input[type="text"]:focus,
-input[type="file"]:focus {
+input[type="file"]:focus,
+select:focus {
   outline: none;
   border-color: var(--gold);
   box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.25);
 }
+
+/* -- Saved webhooks list ---------------------------------------------*/
+
+.webhook-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.webhook-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--parchment-edge);
+}
+
+.webhook-list li:last-child { border-bottom: none; }
+
+.webhook-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.webhook-name {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.webhook-url {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.inline-form { flex-shrink: 0; }
+
+.btn-link {
+  font-family: 'Work Sans', system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--danger-a);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover { color: var(--danger-b); }
 
 .checkbox-row {
   display: flex;

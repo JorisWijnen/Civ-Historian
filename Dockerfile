@@ -31,7 +31,7 @@ COPY scripts/ scripts/
 COPY assets/ assets/
 COPY docs/ docs/
 COPY webapp/ webapp/
-RUN mkdir -p sessions
+RUN mkdir -p sessions data/webhooks
 
 EXPOSE 8000
 

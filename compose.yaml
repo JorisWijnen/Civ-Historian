@@ -5,6 +5,7 @@ services:
         - "8006:8000"
       volumes:
         - ./sessions:/app/sessions
+        - ./data:/app/data
         - /home/joris/.claude:/app/.claude
         - /home/joris/.claude.json:/app/.claude.json
       env_file:

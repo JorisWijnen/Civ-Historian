@@ -25,9 +25,24 @@
         <label for="log_file">Automation.log</label>
         <input type="file" id="log_file" name="log_file" accept=".log" required>
       </div>
+      {% if webhooks %}
       <div class="field">
-        <label for="webhook_url">Discord webhook URL <span class="hint">(optional)</span></label>
+        <label for="webhook_choice">Saved webhook <span class="hint">(optional)</span></label>
+        <select id="webhook_choice" name="webhook_choice">
+          <option value="">&mdash; enter a new webhook below &mdash;</option>
+          {% for name, url in webhooks.items() %}
+          <option value="{{ url }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="field">
+        <label for="webhook_url">Discord webhook URL <span class="hint">(optional{% if webhooks %}, overrides the selection above{% endif %})</span></label>
         <input type="text" id="webhook_url" name="webhook_url" placeholder="https://discord.com/api/webhooks/...">
+      </div>
+      <div class="field">
+        <label for="webhook_name">Save this webhook as <span class="hint">(optional &mdash; name it to find it here next time)</span></label>
+        <input type="text" id="webhook_name" name="webhook_name" placeholder="e.g. our-server-announcements">
       </div>
       <div class="field checkbox-row">
         <input type="checkbox" id="post_article_text" name="post_article_text">
@@ -36,6 +51,26 @@
       <button type="submit" class="btn">Publish the chronicle</button>
     </form>
   </div>
+
+  {% if webhooks %}
+  <div class="panel">
+    <h2>Saved webhooks</h2>
+    <ul class="webhook-list">
+      {% for name, url in webhooks.items() %}
+      <li>
+        <span class="webhook-entry">
+          <span class="webhook-name">{{ name }}</span>
+          <span class="webhook-url">{{ url }}</span>
+        </span>
+        <form action="/webhooks/delete" method="post" class="inline-form">
+          <input type="hidden" name="name" value="{{ name }}">
+          <button type="submit" class="btn-link">Remove</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <p class="footnote">This may take several minutes &mdash; the result (or an
      error) will appear here once the run finishes.</p>

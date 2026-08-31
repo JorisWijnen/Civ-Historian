@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 sessions/*
 !sessions/.gitkeep
+data/webhooks/*
+!data/webhooks/.gitkeep
 incoming/*
 logs/*
 .env

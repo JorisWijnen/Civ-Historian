@@ -15,15 +15,38 @@ packaged as a Docker container so it can run anywhere.
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/` | GET | Upload form: `Automation.log` file + optional Discord webhook URL + "post article text" checkbox. |
+| `/` | GET | Upload form: `Automation.log` file + a dropdown of your saved webhooks + a webhook URL field + optional "save as" name + "post article text" checkbox. |
 | `/run` | POST | Runs `setup_session()` then `run_pipeline()` against the upload, synchronously. Renders `result.html` on success, `error.html` on failure. |
+| `/webhooks/delete` | POST | Removes one saved webhook by name for the current user, then redirects to `/`. |
 | `/sessions/<path>` | GET | Serves files out of the bind-mounted `sessions/` volume (used by `result.html` to embed the generated images). |
 
-There is no auth on any of this (local network only for now — front it with
-your own reverse proxy/SSO if exposing it more broadly) and no job
-queue/progress UI: a real game log takes several minutes, so `/run` is a
-plain HTML form POST that blocks until the run finishes and then renders the
-result page. Leave the tab open; there's no AJAX polling to watch.
+There is no auth of its own on any of this — it trusts an `X-authentik-uid`
+header injected by an Authentik reverse-proxy in front (local network only
+for now). That header is also what saved webhooks are scoped to (see
+below); with no proxy in front (e.g. running it directly for local dev) the
+header is simply absent and everything falls under one shared "anonymous"
+bucket instead of erroring.
+
+There's no job queue/progress UI: a real game log takes several minutes, so
+`/run` is a plain HTML form POST that blocks until the run finishes and then
+renders the result page. Leave the tab open; there's no AJAX polling to
+watch.
+
+### Remembered webhooks
+
+Entering a name in the "save this webhook as" field on a run saves that
+`name -> URL` pair for next time; it then shows up in the dropdown at the
+top of the form and in the "saved webhooks" list below it, where it can be
+removed. Selecting a saved webhook from the dropdown fills in the URL for
+that run — typing a URL directly always overrides the dropdown selection.
+
+Storage is one JSON file per user at `data/webhooks/<uid>.json` (`<uid>` is
+the sanitized `X-authentik-uid` value, or `anonymous`), handled by
+`webapp/webhooks.py`. `data/` is bind-mounted the same way `sessions/` is
+(see `compose.yaml`) so it survives container restarts/rebuilds. It is
+deliberately its own top-level directory rather than living under
+`sessions/`, since `/sessions/<path>` serves that whole tree back out
+verbatim and would otherwise leak other users' webhook URLs.
 
 ## Build and run
 
